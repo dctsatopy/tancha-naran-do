@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}結果 — たんちゃーならんど{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="message-card mb-4">
+  <div class="message-quote">
+    <i class="bi bi-quote fs-3 me-2 opacity-50"></i>
+    {{ messages[0].text }}
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <!-- スコアカード -->
+  <div class="col-md-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-{{ score_class }} text-white">
+        <i class="bi bi-trophy-fill me-2"></i>今回のスコア
+      </div>
+      <div class="card-body text-center">
+        <div class="score-circle score-{{ score_class }} mx-auto mb-3">
+          <span class="score-number">{{ score.overall_score|int if score else '—' }}</span>
+          <span class="score-unit">点</span>
+        </div>
+        <h4><span class="badge bg-{{ score_class }} fs-5">{{ score_label }}</span></h4>
+
+        {% if score %}
+        <hr>
+        <div class="row g-2 text-start mt-1">
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">怒りスコア</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-danger" style="width:{{ score.anger_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.anger_score|int }}点</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">感情調節</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-info" style="width:{{ score.regulation_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.regulation_score|int }}点</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">マインドフルネス</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-success" style="width:{{ score.mindfulness_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.mindfulness_score|int }}点</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">ストレス</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-warning" style="width:{{ score.stress_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.stress_score|int }}点</small>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- アドバイス -->
+  <div class="col-md-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-lightbulb-fill me-2"></i>今日のアドバイス
+      </div>
+      <div class="card-body">
+        {% if advices %}
+          {% for adv in advices %}
+          <div class="advice-item mb-3 p-3 rounded-3">
+            <p class="fw-semibold mb-1 small text-muted">{{ adv.question }}</p>
+            <p class="mb-1 small">{{ adv.explanation }}</p>
+            <p class="mb-0 text-primary small"><i class="bi bi-arrow-right-circle me-1"></i>{{ adv.advice }}</p>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-emoji-smile fs-1 d-block mb-2"></i>
+            素晴らしい！今回は特別なアドバイスはありません。<br>この調子を維持しましょう！
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if messages|length > 1 %}
+<div class="message-card mt-4">
+  <div class="message-quote">
+    <i class="bi bi-quote fs-3 me-2 opacity-50"></i>
+    {{ messages[1].text }}
+  </div>
+</div>
+{% endif %}
+
+<!-- ナビゲーション -->
+<div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
+  <a href="/" class="btn btn-outline-secondary">
+    <i class="bi bi-house me-2"></i>ホームへ
+  </a>
+  <a href="/dashboard" class="btn btn-outline-primary">
+    <i class="bi bi-graph-up me-2"></i>履歴を見る
+  </a>
+  {% if next_session %}
+  <p class="text-muted small w-100 mt-2 mb-0">
+    <i class="bi bi-clock me-1"></i>次回チェックイン予定: {{ next_session.scheduled_at.strftime('%H:%M') }}
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}たんちゃーならんど{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary-custom">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/">
+      <i class="bi bi-heart-pulse-fill me-2"></i>たんちゃーならんど
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-house me-1"></i>ホーム</a></li>
+        <li class="nav-item"><a class="nav-link" href="/check-in"><i class="bi bi-clipboard-check me-1"></i>チェックイン</a></li>
+        <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="bi bi-graph-up me-1"></i>ダッシュボード</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- チェックイン通知バナー（ポーリングで表示） -->
+<div id="check-in-banner" class="alert alert-checkin m-0 d-none" role="alert">
+  <div class="container d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-bell-fill me-2"></i><strong>チェックインの時間です！</strong> 感情の状態を確認しましょう。</span>
+    <a id="check-in-link" href="/check-in" class="btn btn-light btn-sm ms-3">今すぐチェックイン</a>
+  </div>
+</div>
+
+<main class="container my-4">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="text-center text-muted py-3 mt-4 border-top">
+  <small>たんちゃーならんど &mdash; 感情セルフコントロールの旅</small>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/notifications.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

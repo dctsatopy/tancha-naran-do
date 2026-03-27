@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}ホーム — たんちゃーならんど{% endblock %}
+{% block content %}
+
+<!-- メッセージカード -->
+<div class="message-card mb-4">
+  <div class="message-quote">
+    <i class="bi bi-quote fs-3 me-2 opacity-50"></i>
+    {{ message.text }}
+    {% if message.author %}<footer class="mt-1 small opacity-75">— {{ message.author }}</footer>{% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- 今日の状況 -->
+  <div class="col-md-6">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-calendar-check me-2"></i>今日の状況（{{ today }}）
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <div class="progress flex-grow-1 me-3" style="height:20px;">
+            <div class="progress-bar bg-success" role="progressbar"
+                 style="width: {{ (completed_today / 3 * 100)|int }}%">
+              {{ completed_today }}/3
+            </div>
+          </div>
+          <span class="fw-bold">{{ completed_today }}/3 完了</span>
+        </div>
+
+        {% if pending_session %}
+        <div class="alert alert-warning mb-3">
+          <i class="bi bi-bell-fill me-2"></i>チェックインの時間です！
+          <a href="/check-in?session_id={{ pending_session.id }}" class="btn btn-warning btn-sm ms-2">
+            今すぐチェックイン
+          </a>
+        </div>
+        {% endif %}
+
+        <table class="table table-sm table-borderless">
+          <tbody>
+          {% for s in sessions_today %}
+          <tr>
+            <td><i class="bi bi-clock me-1"></i>{{ s.scheduled_at.strftime('%H:%M') }}</td>
+            <td>
+              {% if s.status == 'completed' %}
+                <span class="badge bg-success">完了</span>
+              {% elif s.status == 'in_progress' %}
+                <span class="badge bg-warning">実施中</span>
+              {% elif s.status == 'skipped' %}
+                <span class="badge bg-secondary">スキップ</span>
+              {% else %}
+                <span class="badge bg-light text-dark">予定</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if s.score %}
+                <span class="text-muted small">総合: {{ s.score.overall_score }}点</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">今日のスケジュールはまだありません</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+
+        {% if next_session %}
+        <p class="text-muted small mb-0">
+          <i class="bi bi-arrow-right-circle me-1"></i>次回: {{ next_session.scheduled_at.strftime('%H:%M') }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 最新スコア -->
+  <div class="col-md-6">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-info text-white">
+        <i class="bi bi-bar-chart-fill me-2"></i>最新の感情スコア
+      </div>
+      <div class="card-body">
+        {% if latest_score %}
+        <div class="text-center mb-3">
+          <div class="score-circle score-{{ score_class }} mx-auto">
+            <span class="score-number">{{ latest_score.overall_score|int }}</span>
+            <span class="score-unit">点</span>
+          </div>
+          <div class="mt-2">
+            <span class="badge bg-{{ score_class }} fs-6">{{ score_label }}</span>
+          </div>
+        </div>
+        <div class="row text-center g-2">
+          <div class="col-6">
+            <div class="score-mini-card">
+              <div class="score-label">怒り</div>
+              <div class="score-value text-{{ 'danger' if latest_score.anger_score > 50 else 'success' }}">
+                {{ latest_score.anger_score|int }}
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-mini-card">
+              <div class="score-label">感情調節</div>
+              <div class="score-value">{{ latest_score.regulation_score|int }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-mini-card">
+              <div class="score-label">マインドフルネス</div>
+              <div class="score-value text-success">{{ latest_score.mindfulness_score|int }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-mini-card">
+              <div class="score-label">ストレス</div>
+              <div class="score-value text-{{ 'danger' if latest_score.stress_score > 50 else 'success' }}">
+                {{ latest_score.stress_score|int }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>
+          まだデータがありません。<br>チェックインしてスコアを確認しましょう！
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 手動チェックインボタン -->
+<div class="text-center mt-4">
+  <a href="/check-in" class="btn btn-primary btn-lg px-5">
+    <i class="bi bi-clipboard-heart me-2"></i>今すぐチェックイン
+  </a>
+  <a href="/dashboard" class="btn btn-outline-secondary btn-lg px-4 ms-3">
+    <i class="bi bi-graph-up me-2"></i>履歴を見る
+  </a>
+</div>
+
+{% endblock %}

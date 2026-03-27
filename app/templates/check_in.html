@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}チェックイン — たんちゃーならんど{% endblock %}
+{% block content %}
+
+<!-- リラックスメッセージ -->
+<div class="message-card mb-4">
+  <div class="message-quote">
+    <i class="bi bi-quote fs-3 me-2 opacity-50"></i>
+    {{ message.text }}
+    {% if message.author %}<footer class="mt-1 small opacity-75">— {{ message.author }}</footer>{% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-clipboard-check me-2"></i>感情チェックイン</span>
+    <span class="badge bg-light text-dark">{{ total }}問</span>
+  </div>
+  <div class="card-body">
+
+    <!-- プログレスバー -->
+    <div class="mb-4">
+      <div class="d-flex justify-content-between small text-muted mb-1">
+        <span>回答の進捗</span>
+        <span id="progress-text">0 / {{ total }}</span>
+      </div>
+      <div class="progress" style="height:10px;">
+        <div id="progress-bar" class="progress-bar bg-success transition-all" role="progressbar"
+             style="width:0%"></div>
+      </div>
+    </div>
+
+    <p class="text-muted small mb-4">
+      <i class="bi bi-info-circle me-1"></i>
+      それぞれの設問について、最も当てはまるものを選んでください。<br>
+      <strong>1: まったくそうでない　2: 少しそうだ　3: かなりそうだ　4: 非常にそうだ</strong>
+    </p>
+
+    <form method="post" action="/check-in/submit" id="check-in-form">
+      <input type="hidden" name="session_id" value="{{ session.id }}">
+
+      {% for q in questions %}
+      <div class="question-card mb-4 p-3 rounded-3" id="q-block-{{ loop.index }}">
+        <p class="fw-semibold mb-3">
+          <span class="question-number me-2">{{ loop.index }}</span>{{ q.text }}
+        </p>
+        <div class="d-flex gap-2 flex-wrap">
+          {% for val in [1, 2, 3, 4] %}
+          <label class="scale-label flex-fill text-center" for="q_{{ q.id }}_{{ val }}">
+            <input type="radio" class="btn-check answer-radio" name="q_{{ q.id }}" id="q_{{ q.id }}_{{ val }}"
+                   value="{{ val }}" required>
+            <span class="btn btn-outline-primary w-100">
+              {{ val }}
+              <br>
+              <small class="d-none d-md-block">
+                {% if val == 1 %}まったく{% elif val == 2 %}少し{% elif val == 3 %}かなり{% else %}非常に{% endif %}
+              </small>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="d-grid mt-4">
+        <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" disabled>
+          <i class="bi bi-send-fill me-2"></i>回答を送信する
+        </button>
+      </div>
+      <p id="submit-hint" class="text-muted small text-center mt-2">
+        すべての設問に回答すると送信できます（残り <span id="remaining">{{ total }}</span> 問）
+      </p>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const totalQuestions = {{ total }};
+const answered = new Set();
+
+document.querySelectorAll('.answer-radio').forEach(radio => {
+  radio.addEventListener('change', function() {
+    const name = this.name;
+    if (!answered.has(name)) {
+      answered.add(name);
+    }
+    const count = answered.size;
+    const pct = (count / totalQuestions * 100).toFixed(0);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = count + ' / ' + totalQuestions;
+    document.getElementById('remaining').textContent = totalQuestions - count;
+
+    const submitBtn = document.getElementById('submit-btn');
+    if (count >= totalQuestions) {
+      submitBtn.disabled = false;
+      document.getElementById('submit-hint').classList.add('d-none');
+    }
+  });
+});
+</script>
+{% endblock %}

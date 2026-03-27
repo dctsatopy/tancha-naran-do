@@ -1,0 +1,132 @@
+/* ─── カラーパレット（落ち着いたブルーグリーン）─── */
+:root {
+  --primary: #3a7bd5;
+  --primary-light: #5a9be0;
+  --calm-green: #27ae60;
+  --calm-teal: #1abc9c;
+  --soft-bg: #f0f4f8;
+  --card-bg: #ffffff;
+  --text-muted-custom: #6c757d;
+}
+
+body {
+  background-color: var(--soft-bg);
+  font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+}
+
+/* ─── ナビゲーション ─── */
+.bg-primary-custom {
+  background: linear-gradient(135deg, #2c5f9e, #3a7bd5) !important;
+}
+
+/* ─── メッセージカード ─── */
+.message-card {
+  background: linear-gradient(135deg, #eaf4fb, #d5eaf9);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(58, 123, 213, 0.1);
+}
+
+.message-quote {
+  font-size: 1rem;
+  color: #2c3e50;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+/* ─── チェックイン通知バナー ─── */
+.alert-checkin {
+  background: linear-gradient(90deg, #f39c12, #e67e22);
+  color: white;
+  border: none;
+  border-radius: 0;
+}
+
+/* ─── スコアサークル ─── */
+.score-circle {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid currentColor;
+}
+
+.score-circle.score-success { color: var(--calm-green); background: #d4edda; }
+.score-circle.score-warning { color: #856404; background: #fff3cd; }
+.score-circle.score-danger  { color: #842029; background: #f8d7da; }
+.score-circle.score-dark    { color: #343a40; background: #d3d3d3; }
+.score-circle.score-secondary { color: #6c757d; background: #e2e3e5; }
+
+.score-number { font-size: 2rem; font-weight: 700; line-height: 1; }
+.score-unit   { font-size: 0.75rem; }
+
+/* ─── ミニスコアカード ─── */
+.score-mini-card {
+  background: var(--soft-bg);
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+.score-label { font-size: 0.7rem; color: var(--text-muted-custom); }
+.score-value { font-size: 1.4rem; font-weight: 700; }
+
+/* ─── スコア詳細 ─── */
+.score-detail-item { padding: 0.25rem 0; }
+.score-detail-label { font-size: 0.75rem; color: var(--text-muted-custom); }
+
+/* ─── 設問カード ─── */
+.question-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  transition: background 0.2s;
+}
+.question-card:has(.btn-check:checked) {
+  background: #e8f4fd;
+  border-color: var(--primary-light);
+}
+
+.question-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.scale-label .btn { font-size: 1rem; font-weight: 600; }
+
+/* ─── アドバイスカード ─── */
+.advice-item {
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border-left: 3px solid var(--primary-light);
+}
+
+/* ─── カード共通 ─── */
+.card {
+  border: none;
+  border-radius: 12px;
+}
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+  font-weight: 600;
+}
+
+/* ─── テーブル ─── */
+.table-hover tbody tr:hover { background-color: #f0f4f8; }
+
+/* ─── トランジション ─── */
+.transition-all { transition: width 0.4s ease; }
+
+/* ─── レスポンシブ調整 ─── */
+@media (max-width: 576px) {
+  .scale-label { flex: 1 1 40%; }
+}
