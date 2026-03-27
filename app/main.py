@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import logging
 from datetime import datetime, date, timedelta
@@ -18,9 +19,11 @@ from app.questions_data import QUESTIONS, QUESTION_BY_ID
 from app.messages_data import get_random_message, get_messages
 from app.scoring import calculate_scores, get_score_label
 from app.scheduler import start_scheduler, stop_scheduler
+from app.logging_config import setup_logging
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 logger = logging.getLogger(__name__)
+access_logger = logging.getLogger("access")
 
 # 本番環境では API ドキュメントを非公開にする（ENABLE_DOCS=true で有効化）
 _ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
@@ -36,6 +39,24 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+class AccessLogMiddleware(BaseHTTPMiddleware):
+    """アクセスログを出力する（IP・メソッド・パス・ステータス・レスポンスタイム）"""
+    async def dispatch(self, request: Request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start) * 1000
+        client_ip = request.client.host if request.client else "-"
+        access_logger.info(
+            "%s %s %s %d %.1fms",
+            client_ip,
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
         return response
 
 
@@ -56,7 +77,8 @@ app = FastAPI(
     redoc_url="/redoc" if _ENABLE_DOCS else None,
     openapi_url="/openapi.json" if _ENABLE_DOCS else None,
 )
-app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)  # 内側（セキュリティヘッダー付与）
+app.add_middleware(AccessLogMiddleware)         # 外側（レスポンスタイム計測）
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -127,6 +149,7 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
         session.status = "in_progress"
         session.started_at = datetime.now()
         db.commit()
+        logger.info("[CHECK-IN] session_id=%d started", session.id)
 
     # ランダムに設問を選出（カテゴリバランスを考慮）
     sampled = random.sample(QUESTIONS, min(QUESTIONS_PER_SESSION, len(QUESTIONS)))
@@ -152,6 +175,7 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
         if session_id <= 0:
             raise ValueError
     except (ValueError, TypeError):
+        logger.warning("[SUBMIT] Invalid session_id received: %r", form.get("session_id"))
         raise HTTPException(status_code=400, detail="Invalid session_id")
 
     session = db.query(CheckInSession).filter(CheckInSession.id == session_id).first()
@@ -167,14 +191,17 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
             qid = int(key[2:])
             answer_value = int(value)
         except (ValueError, TypeError):
+            logger.warning("[SUBMIT] Invalid form field session_id=%d key=%r value=%r", session_id, key, value)
             raise HTTPException(status_code=400, detail=f"Invalid field: {key}")
 
         # 設問IDがマスタに存在するか確認
         if qid not in QUESTION_BY_ID:
+            logger.warning("[SUBMIT] Unknown question_id=%d session_id=%d", qid, session_id)
             raise HTTPException(status_code=400, detail=f"Unknown question_id: {qid}")
 
         # 回答値が 1〜4 の範囲内か確認
         if answer_value not in VALID_ANSWER_VALUES:
+            logger.warning("[SUBMIT] Out-of-range answer_value=%d question_id=%d session_id=%d", answer_value, qid, session_id)
             raise HTTPException(status_code=400, detail=f"Invalid answer_value: {answer_value}")
 
         answers.append({"question_id": qid, "answer_value": answer_value})
@@ -199,6 +226,12 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
     session.completed_at = datetime.now()
     db.commit()
 
+    logger.info(
+        "[SUBMIT] session_id=%d completed answers=%d overall_score=%.1f",
+        session_id,
+        len(answers),
+        scores.get("overall_score", 0.0),
+    )
     return RedirectResponse(f"/check-in/result/{session_id}", status_code=303)
 
 
