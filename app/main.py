@@ -1,12 +1,14 @@
+import os
 import random
 import logging
 from datetime import datetime, date, timedelta
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -20,6 +22,22 @@ from app.scheduler import start_scheduler, stop_scheduler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 本番環境では API ドキュメントを非公開にする（ENABLE_DOCS=true で有効化）
+_ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
+
+VALID_ANSWER_VALUES = {1, 2, 3, 4}
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """すべてのレスポンスにセキュリティヘッダーを付与する"""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,7 +49,14 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="たんちゃーならんど", lifespan=lifespan)
+app = FastAPI(
+    title="たんちゃーならんど",
+    lifespan=lifespan,
+    docs_url="/docs" if _ENABLE_DOCS else None,
+    redoc_url="/redoc" if _ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if _ENABLE_DOCS else None,
+)
+app.add_middleware(SecurityHeadersMiddleware)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -120,24 +145,45 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
 @app.post("/check-in/submit", response_class=HTMLResponse)
 async def submit_check_in(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-    session_id = int(form.get("session_id", 0))
+
+    # session_id の型バリデーション
+    try:
+        session_id = int(form.get("session_id", ""))
+        if session_id <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
 
     session = db.query(CheckInSession).filter(CheckInSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # 回答を保存
+    # 回答を保存（question_id と answer_value を厳密に検証）
     answers = []
     for key, value in form.items():
-        if key.startswith("q_"):
+        if not key.startswith("q_"):
+            continue
+        try:
             qid = int(key[2:])
-            answers.append({"question_id": qid, "answer_value": int(value)})
-            db.add(CheckInAnswer(
-                session_id=session_id,
-                question_id=qid,
-                answer_value=int(value),
-                answered_at=datetime.now(),
-            ))
+            answer_value = int(value)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail=f"Invalid field: {key}")
+
+        # 設問IDがマスタに存在するか確認
+        if qid not in QUESTION_BY_ID:
+            raise HTTPException(status_code=400, detail=f"Unknown question_id: {qid}")
+
+        # 回答値が 1〜4 の範囲内か確認
+        if answer_value not in VALID_ANSWER_VALUES:
+            raise HTTPException(status_code=400, detail=f"Invalid answer_value: {answer_value}")
+
+        answers.append({"question_id": qid, "answer_value": answer_value})
+        db.add(CheckInAnswer(
+            session_id=session_id,
+            question_id=qid,
+            answer_value=answer_value,
+            answered_at=datetime.now(),
+        ))
 
     # スコアを計算・保存
     scores = calculate_scores(answers)
@@ -232,7 +278,7 @@ async def api_status(db: Session = Depends(get_db)):
 
 # ─── API: グラフ用データ ─── #
 @app.get("/api/history")
-async def api_history(days: int = 7, db: Session = Depends(get_db)):
+async def api_history(days: int = Query(default=7, ge=1, le=365), db: Session = Depends(get_db)):
     since = date.today() - timedelta(days=days)
     scores = (
         db.query(EmotionalScore)
@@ -265,7 +311,7 @@ async def api_history(days: int = 7, db: Session = Depends(get_db)):
 
 # ─── API: セッション一覧 ─── #
 @app.get("/api/sessions")
-async def api_sessions(limit: int = 20, db: Session = Depends(get_db)):
+async def api_sessions(limit: int = Query(default=20, ge=1, le=200), db: Session = Depends(get_db)):
     sessions = (
         db.query(CheckInSession)
         .order_by(CheckInSession.scheduled_at.desc())
