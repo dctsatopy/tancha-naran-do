@@ -2,6 +2,53 @@
 (function () {
   const POLL_INTERVAL = 30000; // 30秒
 
+  // Web Audio API: ブラウザの自動再生ポリシーに対応するため
+  // ユーザー操作後に AudioContext を初期化する
+  let audioCtx = null;
+  const notifiedSessions = new Set(); // 通知済みセッションID（チャイム重複防止）
+
+  function unlockAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  // 任意のユーザー操作で AudioContext を解放する
+  document.addEventListener('click', unlockAudio, { once: false });
+  document.addEventListener('keydown', unlockAudio, { once: false });
+
+  // 3音のチャイム（ソ→ド→ミ の上昇和音）
+  function playChime() {
+    if (!audioCtx || audioCtx.state === 'suspended') return;
+
+    const notes = [784, 1047, 1319]; // G5, C6, E6 (Hz)
+    const startTime = audioCtx.currentTime;
+
+    notes.forEach(function (freq, i) {
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(freq, startTime);
+
+      // 各音を 0.3秒ずつ時間差で鳴らし、フェードアウトさせる
+      const noteStart = startTime + i * 0.35;
+      const noteEnd = noteStart + 0.8;
+      gainNode.gain.setValueAtTime(0, noteStart);
+      gainNode.gain.linearRampToValueAtTime(0.4, noteStart + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, noteEnd);
+
+      oscillator.start(noteStart);
+      oscillator.stop(noteEnd);
+    });
+  }
+
   function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -38,6 +85,11 @@
       if (data.check_in_ready) {
         showBanner(data.session_id);
         showBrowserNotification(data.session_id);
+        // 同じセッションで繰り返しチャイムが鳴らないよう制御
+        if (!notifiedSessions.has(data.session_id)) {
+          notifiedSessions.add(data.session_id);
+          playChime();
+        }
       }
     } catch (e) {
       // ネットワークエラーは無視
