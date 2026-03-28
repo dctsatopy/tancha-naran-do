@@ -108,6 +108,16 @@ class TestCalculateScores:
 
         assert scores_by_value[1] < scores_by_value[2] < scores_by_value[3] < scores_by_value[4]
 
+    def test_overall_decreases_when_regulation_difficulty_is_high(self):
+        """regulation（困難度）が高いほど overall が下がること（DERS は高い=悪い状態）"""
+        # 非逆転の regulation 設問のみに 1（困難なし）vs 4（困難あり）を回答して比較
+        non_reverse_reg = [q for q in QUESTIONS if q["category"] == "regulation" and not q["reverse"]]
+        scores_low = calculate_scores([{"question_id": q["id"], "answer_value": 1} for q in non_reverse_reg])
+        scores_high = calculate_scores([{"question_id": q["id"], "answer_value": 4} for q in non_reverse_reg])
+        assert scores_low["overall_score"] > scores_high["overall_score"], (
+            f"regulation 困難が高い時に overall が下がるべき: low={scores_low['overall_score']}, high={scores_high['overall_score']}"
+        )
+
     def test_score_precision(self):
         """スコアは小数点1位で返ること"""
         answers = [{"question_id": 1, "answer_value": 3}]

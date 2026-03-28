@@ -143,4 +143,47 @@
   </a>
 </div>
 
+{% if is_weekend_prompt %}
+<!-- 土日振り返りプロンプト（仕様 §3.5） -->
+<div class="modal fade" id="weekendModal" tabindex="-1" aria-labelledby="weekendModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="weekendModalLabel">
+          <i class="bi bi-calendar-heart me-2"></i>週末の振り返りチェックイン
+        </h5>
+      </div>
+      <div class="modal-body">
+        <p>今日は休日です。一日を振り返り、平穏な心の状態を確認しませんか？</p>
+        <p class="text-muted small mb-0">
+          <i class="bi bi-clock me-1"></i>18:00〜21:00 の間にチェックイン時刻を1件設定します。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">後で</button>
+        <button type="button" class="btn btn-info text-white" id="weekendOkBtn">
+          <i class="bi bi-check2-circle me-1"></i>作成する
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const modal = new bootstrap.Modal(document.getElementById('weekendModal'));
+    modal.show();
+    document.getElementById('weekendOkBtn').addEventListener('click', function () {
+      const btn = this;
+      btn.disabled = true;
+      fetch('/api/sessions/weekend', { method: 'POST' })
+        .then(function (r) {
+          if (r.ok) { location.reload(); }
+          else { r.json().then(function (d) { alert('エラー: ' + d.detail); btn.disabled = false; }); }
+        })
+        .catch(function () { alert('通信エラーが発生しました'); btn.disabled = false; });
+    });
+  });
+</script>
+{% endif %}
+
 {% endblock %}

@@ -105,6 +105,9 @@ async def home(request: Request, db: Session = Depends(get_db)):
         None,
     )
 
+    # 土日にセッションが0件の場合、振り返りプロンプトを表示
+    is_weekend_prompt = (today.weekday() >= 5) and (len(sessions_today) == 0)
+
     # 直近スコア
     latest_score = (
         db.query(EmotionalScore)
@@ -125,13 +128,14 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "score_class": score_class,
         "message": message,
         "today": today,
+        "is_weekend_prompt": is_weekend_prompt,
     })
 
 
 # ─── チェックイン画面 ─── #
 @app.get("/check-in", response_class=HTMLResponse)
 async def check_in_page(request: Request, session_id: int | None = None, db: Session = Depends(get_db)):
-    if session_id:
+    if session_id is not None:
         session = db.query(CheckInSession).filter(CheckInSession.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -151,8 +155,9 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
         db.commit()
         logger.info("[CHECK-IN] session_id=%d started", session.id)
 
-    # ランダムに設問を選出（カテゴリバランスを考慮）
-    sampled = random.sample(QUESTIONS, min(QUESTIONS_PER_SESSION, len(QUESTIONS)))
+    # 設問を選出: session.id をシードにすることで同一セッションでは再アクセス時も同じ問題を表示
+    rng = random.Random(session.id)
+    sampled = rng.sample(QUESTIONS, min(QUESTIONS_PER_SESSION, len(QUESTIONS)))
     message = get_random_message()
 
     return templates.TemplateResponse("check_in.html", {
@@ -181,6 +186,11 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
     session = db.query(CheckInSession).filter(CheckInSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # 完了済みセッションへの再送信を拒否
+    if session.status == "completed":
+        logger.warning("[SUBMIT] Already completed session_id=%d", session_id)
+        raise HTTPException(status_code=409, detail="Session already completed")
 
     # 回答を保存（question_id と answer_value を厳密に検証）
     answers = []
@@ -340,6 +350,32 @@ async def api_history(days: int = Query(default=7, ge=1, le=365), db: Session = 
             "sessions": len(day_scores),
         })
     return result
+
+
+# ─── API: 土日振り返りセッション生成 ─── #
+@app.post("/api/sessions/weekend")
+async def api_create_weekend_session(db: Session = Depends(get_db)):
+    """土日限定: 振り返り用チェックインセッションを 18:00〜21:00 の間に1件生成する"""
+    today = date.today()
+    if today.weekday() < 5:
+        raise HTTPException(status_code=400, detail="Today is not a weekend")
+
+    existing = (
+        db.query(CheckInSession)
+        .filter(func.date(CheckInSession.scheduled_at) == today)
+        .count()
+    )
+    if existing >= 1:
+        raise HTTPException(status_code=409, detail="Weekend session already exists for today")
+
+    m = random.randint(1080, 1259)  # 18:00〜20:59
+    scheduled = datetime(today.year, today.month, today.day, m // 60, m % 60)
+    session = CheckInSession(scheduled_at=scheduled, status="pending")
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    logger.info("[WEEKEND] Created weekend session at %s", scheduled.strftime("%H:%M"))
+    return {"session_id": session.id, "scheduled_at": scheduled.isoformat()}
 
 
 # ─── API: セッション一覧 ─── #
