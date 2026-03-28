@@ -127,6 +127,28 @@ tancha-naran-do/
 
 ---
 
+## 出典・免責事項
+
+### 参考心理尺度
+
+設問は下記の検証済み心理尺度を参考に、個人的なセルフモニタリング用として再編集したものです。
+
+| カテゴリ | 参考尺度 | 日本語版出典 |
+|---|---|---|
+| 怒り感情 | STAXI-2 (State-Trait Anger Expression Inventory-2) | PAR 社が著作権を保有する商業尺度。日本語版は著者許諾のもと研究・臨床目的に使用される。公開文献での邦訳確認不可。 |
+| 感情調節困難 | DERS (Difficulties in Emotion Regulation Scale) | 山田圭介・杉江征 (2013). 「感情調節困難尺度日本語版の作成」. *感情心理学研究*, 20(3), 86–95. [DOI: 10.4092/jsre.20.86](https://doi.org/10.4092/jsre.20.86) |
+| 認知的感情調節 | CERQ (Cognitive Emotion Regulation Questionnaire) | 榊原良太 (2015). 「認知的感情調節方略尺度（CERQ-J）の開発」. *感情心理学研究*, 23(1), 46–58. |
+| マインドフルネス | FFMQ (Five Facet Mindfulness Questionnaire) | Sugiura, Y., Sato, A., Ito, Y., & Murakami, H. (2012). Development and validation of the Japanese version of the Five Facet Mindfulness Questionnaire. *Mindfulness*, 3(2), 85–94. [DOI: 10.1007/s12671-011-0082-1](https://doi.org/10.1007/s12671-011-0082-1) |
+| ストレス | PSS (Perceived Stress Scale) | 鷲見克典 (2006). 「知覚されたストレス尺度（PSS）日本語版の信頼性・妥当性の検討」. *健康心理学研究*, 19(2), 44–53. [DOI: 10.11560/jahp.19.2_44](https://doi.org/10.11560/jahp.19.2_44); Mimura, C., & Griffiths, P. (2008). A Japanese version of the Perceived Stress Scale. *BMC Psychiatry*, 8, 85. |
+
+### 免責事項
+
+- 本アプリケーションは**個人的な感情セルフモニタリング**を目的としており、医療診断・治療を目的としたものではありません。
+- 上記尺度の設問は参考として再編集したものであり、原著尺度の正式な実施・採点手順とは異なります。
+- 精神的な健康について専門的なサポートが必要な場合は、医師・臨床心理士等の専門家にご相談ください。
+
+---
+
 ## ライセンス
 
 個人利用目的のプロジェクトです。医療診断を目的としたものではありません。
