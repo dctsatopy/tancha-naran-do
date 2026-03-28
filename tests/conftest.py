@@ -74,6 +74,8 @@ def make_session(db, status="pending", started=False, completed=False):
     session = CheckInSession(scheduled_at=datetime.now(), status=status)
     if started:
         session.started_at = datetime.now()
+    if completed:
+        session.completed_at = datetime.now()
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -85,8 +87,6 @@ def make_completed_session(db):
     from app.scoring import calculate_scores
 
     session = make_session(db, status="completed", started=True, completed=True)
-    session.completed_at = datetime.now()
-    db.commit()
 
     answers_data = [{"question_id": i, "answer_value": 2} for i in range(1, 11)]
     for a in answers_data:

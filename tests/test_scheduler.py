@@ -11,7 +11,7 @@ from datetime import datetime, date
 from unittest.mock import patch
 from freezegun import freeze_time
 
-from app.scheduler import generate_daily_sessions
+from app.scheduler import generate_daily_sessions, generate_weekend_session
 from app.models import CheckInSession
 
 
@@ -109,3 +109,48 @@ class TestGenerateDailySessions:
             generate_daily_sessions()
         count = db_session.query(CheckInSession).count()
         assert count == 3, f"{weekday_name}: 3セッション生成されませんでした (count={count})"
+
+
+class TestGenerateWeekendSession:
+    """generate_weekend_session() の動作検証（仕様 §3.5）"""
+
+    @freeze_time("2026-03-28 10:00:00")  # 土曜日
+    def test_generates_1_session_on_saturday(self, db_session):
+        """土曜日に1件のセッションが生成されること"""
+        generate_weekend_session()
+        assert db_session.query(CheckInSession).count() == 1
+
+    @freeze_time("2026-03-29 10:00:00")  # 日曜日
+    def test_generates_1_session_on_sunday(self, db_session):
+        """日曜日に1件のセッションが生成されること"""
+        generate_weekend_session()
+        assert db_session.query(CheckInSession).count() == 1
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_session_scheduled_in_evening_hours(self, db_session):
+        """生成セッションの時刻が 18:00〜21:00 の範囲内であること（仕様 §3.5）"""
+        generate_weekend_session()
+        s = db_session.query(CheckInSession).first()
+        t = s.scheduled_at.time()
+        assert t >= datetime.strptime("18:00", "%H:%M").time(), f"{t} は 18:00 より前"
+        assert t < datetime.strptime("21:00", "%H:%M").time(), f"{t} は 21:00 以降"
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_session_status_is_pending(self, db_session):
+        """生成セッションの status が pending であること"""
+        generate_weekend_session()
+        s = db_session.query(CheckInSession).first()
+        assert s.status == "pending"
+
+    @freeze_time("2026-03-30 10:00:00")  # 月曜日
+    def test_skips_on_weekday(self, db_session):
+        """平日はセッションを生成しないこと"""
+        generate_weekend_session()
+        assert db_session.query(CheckInSession).count() == 0
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_no_duplicate_on_second_call(self, db_session):
+        """既に1件あれば2回目の呼び出しで重複生成しないこと"""
+        generate_weekend_session()
+        generate_weekend_session()
+        assert db_session.query(CheckInSession).count() == 1

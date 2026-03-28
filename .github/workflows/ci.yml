@@ -7,7 +7,28 @@ on:
     branches: [main]
 
 jobs:
+  # ── pytest でアプリの動作を検証 ───────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run pytest
+        run: python -m pytest tests/ -v --tb=short
+        env:
+          DATABASE_URL: sqlite:////tmp/tancha_ci_test.db
+          LOG_DIR: /tmp/tancha-ci-logs
+
+  # ── Docker イメージのビルドを検証（push なし）────────────────────────────
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +44,3 @@ jobs:
           tags: tancha-naran-do:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Smoke test (start container and check health)
-        run: |
-          docker run -d --name test-app -p 8080:8000 \
-            -e DATABASE_URL=sqlite:////tmp/tancha.db \
-            tancha-naran-do:ci
-          sleep 5
-          curl -f http://localhost:8080/ || (docker logs test-app && exit 1)
-          docker stop test-app

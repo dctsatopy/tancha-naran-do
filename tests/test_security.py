@@ -110,7 +110,7 @@ class TestInputValidationAnswerValue:
             "/check-in/submit",
             data={"session_id": str(session.id), "q_1": answer_value},
         )
-        # 400 でなければ OK（404 はセッション存在確認の都合で起きうる）
+        # 400 でなければ OK（303/307 リダイレクトになること）
         assert res.status_code != 400
 
 

@@ -5,6 +5,7 @@ HTTP エンドポイントの統合テスト (app/main.py)
 """
 import pytest
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 from app.models import CheckInSession, EmotionalScore
 from tests.conftest import make_session, make_completed_session
 
@@ -27,6 +28,26 @@ class TestHomeEndpoint:
     def test_shows_check_in_link(self, client):
         res = client.get("/")
         assert "/check-in" in res.text
+
+    @freeze_time("2026-03-28 09:00:00")  # 土曜日
+    def test_weekend_prompt_shown_when_no_sessions(self, client):
+        """土日にセッションが0件のとき週末プロンプトモーダルが表示されること（仕様 §3.5）"""
+        res = client.get("/")
+        assert res.status_code == 200
+        assert "weekendModal" in res.text
+
+    @freeze_time("2026-03-30 09:00:00")  # 月曜日
+    def test_weekend_prompt_not_shown_on_weekday(self, client):
+        """平日はプロンプトモーダルが表示されないこと"""
+        res = client.get("/")
+        assert "weekendModal" not in res.text
+
+    @freeze_time("2026-03-28 09:00:00")  # 土曜日
+    def test_weekend_prompt_not_shown_when_session_exists(self, client, db_session):
+        """土日でもセッションが存在する場合はプロンプトを表示しないこと"""
+        make_session(db_session)
+        res = client.get("/")
+        assert "weekendModal" not in res.text
 
 
 class TestCheckInPageEndpoint:
@@ -78,6 +99,25 @@ class TestCheckInPageEndpoint:
         res = client.get(f"/check-in?session_id={session.id}")
         assert res.status_code == 307  # または 302/303
         assert f"/check-in/result/{session.id}" in res.headers["location"]
+
+    def test_session_id_zero_returns_404(self, client):
+        """session_id=0 は 404 になること（is not None チェック）"""
+        res = client.get("/check-in?session_id=0")
+        assert res.status_code == 404
+
+    def test_same_session_shows_same_questions_on_reload(self, client):
+        """同一 session_id での再アクセス時に同じ問題セットが表示されること（仕様 §3.1）"""
+        import re
+        res1 = client.get("/check-in")
+        match = re.search(r'name="session_id"\s+value="(\d+)"', res1.text)
+        assert match, "session_id が見つかりません"
+        session_id = match.group(1)
+        q_names_1 = set(re.findall(r'name="(q_\d+)"', res1.text))
+
+        res2 = client.get(f"/check-in?session_id={session_id}")
+        q_names_2 = set(re.findall(r'name="(q_\d+)"', res2.text))
+
+        assert q_names_1 == q_names_2, "再アクセス時に問題セットが変わっています"
 
     def test_session_status_becomes_in_progress(self, client, db_session):
         """チェックイン画面を開くと status が in_progress になること"""
@@ -180,6 +220,14 @@ class TestSubmitEndpoint:
             data={"session_id": str(session.id), "q_abc": "2"},
         )
         assert res.status_code == 400
+
+    def test_double_submission_returns_409(self, client, db_session):
+        """完了済みセッションへの再送信は 409 になること（仕様 §11.2）"""
+        session = make_session(db_session, status="in_progress")
+        form = self._valid_form(session.id, list(range(1, 11)))
+        client.post("/check-in/submit", data=form)  # 1回目（正常）
+        res = client.post("/check-in/submit", data=form)  # 2回目（重複）
+        assert res.status_code == 409
 
 
 class TestResultEndpoint:
@@ -356,3 +404,54 @@ class TestApiSessionsEndpoint:
         session_item = data[0]
         for key in ["id", "scheduled_at", "status"]:
             assert key in session_item
+
+
+class TestApiWeekendSessionEndpoint:
+    """POST /api/sessions/weekend — 土日振り返りセッション生成（仕様 §3.5）"""
+
+    @freeze_time("2026-03-28 10:00:00")  # 土曜日
+    def test_creates_session_on_saturday(self, client):
+        """土曜日にセッションを作成できること"""
+        res = client.post("/api/sessions/weekend")
+        assert res.status_code == 200
+
+    @freeze_time("2026-03-29 10:00:00")  # 日曜日
+    def test_creates_session_on_sunday(self, client):
+        """日曜日にセッションを作成できること"""
+        res = client.post("/api/sessions/weekend")
+        assert res.status_code == 200
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_response_has_required_fields(self, client):
+        """レスポンスに session_id と scheduled_at が含まれること"""
+        data = client.post("/api/sessions/weekend").json()
+        assert "session_id" in data
+        assert "scheduled_at" in data
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_session_scheduled_in_evening_hours(self, client):
+        """生成セッションの時刻が 18:00〜21:00 の範囲内であること"""
+        data = client.post("/api/sessions/weekend").json()
+        from datetime import datetime as dt
+        t = dt.fromisoformat(data["scheduled_at"]).time()
+        assert t >= dt.strptime("18:00", "%H:%M").time(), f"{t} は 18:00 より前"
+        assert t < dt.strptime("21:00", "%H:%M").time(), f"{t} は 21:00 以降"
+
+    @freeze_time("2026-03-30 10:00:00")  # 月曜日
+    def test_returns_400_on_weekday(self, client):
+        """平日は 400 を返すこと"""
+        res = client.post("/api/sessions/weekend")
+        assert res.status_code == 400
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_duplicate_returns_409(self, client):
+        """既にセッションがある場合は 409 を返すこと"""
+        client.post("/api/sessions/weekend")  # 1回目
+        res = client.post("/api/sessions/weekend")  # 2回目
+        assert res.status_code == 409
+
+    @freeze_time("2026-03-28 10:00:00")
+    def test_security_headers_present(self, client):
+        """セキュリティヘッダーが付与されること"""
+        res = client.post("/api/sessions/weekend")
+        assert res.headers.get("x-content-type-options") == "nosniff"
