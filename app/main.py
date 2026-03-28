@@ -1,5 +1,7 @@
 import os
+import uuid
 import time
+import secrets
 import random
 import logging
 from datetime import datetime, date, timedelta
@@ -10,6 +12,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -30,7 +35,12 @@ _ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
 
 VALID_ANSWER_VALUES = {1, 2, 3, 4}
 
+# ── レート制限 ────────────────────────────────────────────────────────────────
+# DISABLE_RATE_LIMIT=true でテスト時などに無効化できる
+_RATE_LIMIT_ENABLED = os.getenv("DISABLE_RATE_LIMIT", "false").lower() != "true"
+limiter = Limiter(key_func=get_remote_address, enabled=_RATE_LIMIT_ENABLED)
 
+# ── Content-Security-Policy ──────────────────────────────────────────────────
 _CSP = (
     "default-src 'self'; "
     "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
@@ -55,15 +65,56 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class AccessLogMiddleware(BaseHTTPMiddleware):
-    """アクセスログを出力する（IP・メソッド・パス・ステータス・レスポンスタイム）"""
+class CsrfMiddleware(BaseHTTPMiddleware):
+    """
+    CSRF 保護ミドルウェア（Origin / Referer ヘッダー検証）
+
+    ブラウザが送信する POST リクエストには必ず Origin または Referer ヘッダーが付く。
+    両ヘッダーが存在し、かつリクエストホストと一致しない場合はリジェクトする。
+    ヘッダーが存在しない場合（curl やテストクライアント等）は許可する。
+    """
     async def dispatch(self, request: Request, call_next):
+        if request.method == "POST":
+            host = request.headers.get("host", "")
+            origin = request.headers.get("origin")
+            referer = request.headers.get("referer")
+
+            if origin is not None:
+                # Origin ヘッダーがある場合: スキームとホストを除いた部分がリクエストホストと一致するか確認
+                # e.g. "http://localhost:8000" → "localhost:8000"
+                origin_host = origin.split("://", 1)[-1].rstrip("/")
+                if origin_host != host:
+                    logger.warning(
+                        "[CSRF] Rejected POST from Origin=%r (expected host=%r) path=%s",
+                        origin, host, request.url.path,
+                    )
+                    return JSONResponse(status_code=403, content={"detail": "CSRF protection: invalid origin"})
+            elif referer is not None:
+                # Referer ヘッダーのみある場合: Referer がホストを含むか確認
+                if host not in referer:
+                    logger.warning(
+                        "[CSRF] Rejected POST from Referer=%r (expected host=%r) path=%s",
+                        referer, host, request.url.path,
+                    )
+                    return JSONResponse(status_code=403, content={"detail": "CSRF protection: invalid referer"})
+
+        return await call_next(request)
+
+
+class AccessLogMiddleware(BaseHTTPMiddleware):
+    """アクセスログを出力する（リクエストID・IP・メソッド・パス・ステータス・レスポンスタイム）"""
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        # リクエストIDをリクエストのstateに保存（下流ハンドラーから参照可能）
+        request.state.request_id = request_id
+
         start = time.perf_counter()
         response = await call_next(request)
         duration_ms = (time.perf_counter() - start) * 1000
         client_ip = request.client.host if request.client else "-"
         access_logger.info(
-            "%s %s %s %d %.1fms",
+            "req_id=%s %s %s %s %d %.1fms",
+            request_id,
             client_ip,
             request.method,
             request.url.path,
@@ -77,10 +128,32 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     # 起動時
     Base.metadata.create_all(bind=engine)
+    _migrate_access_tokens()
     start_scheduler()
     yield
     # 終了時
     stop_scheduler()
+
+
+def _migrate_access_tokens() -> None:
+    """既存セッションのうち access_token が NULL のものに UUID を付与する（一回限りの移行処理）"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        sessions_without_token = db.query(CheckInSession).filter(
+            CheckInSession.access_token == None  # noqa: E711
+        ).all()
+        if not sessions_without_token:
+            return
+        for s in sessions_without_token:
+            s.access_token = str(uuid.uuid4())
+        db.commit()
+        logger.info("[MIGRATE] Populated access_token for %d existing sessions", len(sessions_without_token))
+    except Exception as e:
+        logger.error("[MIGRATE] Failed to populate access_token: %s", e)
+        db.rollback()
+    finally:
+        db.close()
 
 
 app = FastAPI(
@@ -90,12 +163,22 @@ app = FastAPI(
     redoc_url="/redoc" if _ENABLE_DOCS else None,
     openapi_url="/openapi.json" if _ENABLE_DOCS else None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)  # 内側（セキュリティヘッダー付与）
+app.add_middleware(CsrfMiddleware)             # 中間（CSRF 保護）
 app.add_middleware(AccessLogMiddleware)         # 外側（レスポンスタイム計測）
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 QUESTIONS_PER_SESSION = 10  # 1セッションあたりの出題数
+
+
+# ─── ヘルスチェック ─── #
+@app.get("/health")
+async def health():
+    """コンテナオーケストレーター向けヘルスチェックエンドポイント"""
+    return {"status": "ok"}
 
 
 # ─── ホーム画面 ─── #
@@ -152,7 +235,8 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         if session.status == "completed":
-            return RedirectResponse(f"/check-in/result/{session_id}")
+            token = session.access_token or str(session.id)
+            return RedirectResponse(f"/check-in/result/{token}")
     else:
         # 新しいセッション（手動起動）
         session = CheckInSession(scheduled_at=datetime.now(), status="pending")
@@ -182,6 +266,7 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
 
 # ─── 回答送信 ─── #
 @app.post("/check-in/submit", response_class=HTMLResponse)
+@limiter.limit("60/minute")
 async def submit_check_in(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
 
@@ -253,18 +338,19 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
         len(answers),
         scores.get("overall_score", 0.0),
     )
-    return RedirectResponse(f"/check-in/result/{session_id}", status_code=303)
+    token = session.access_token or str(session_id)
+    return RedirectResponse(f"/check-in/result/{token}", status_code=303)
 
 
 # ─── 結果画面 ─── #
-@app.get("/check-in/result/{session_id}", response_class=HTMLResponse)
-async def result_page(request: Request, session_id: int, db: Session = Depends(get_db)):
-    session = db.query(CheckInSession).filter(CheckInSession.id == session_id).first()
+@app.get("/check-in/result/{access_token}", response_class=HTMLResponse)
+async def result_page(request: Request, access_token: str, db: Session = Depends(get_db)):
+    session = db.query(CheckInSession).filter(CheckInSession.access_token == access_token).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    score = db.query(EmotionalScore).filter(EmotionalScore.session_id == session_id).first()
-    answers = db.query(CheckInAnswer).filter(CheckInAnswer.session_id == session_id).all()
+    score = db.query(EmotionalScore).filter(EmotionalScore.session_id == session.id).first()
+    answers = db.query(CheckInAnswer).filter(CheckInAnswer.session_id == session.id).all()
 
     # 高スコア設問のアドバイスを取得
     advices = []
@@ -366,7 +452,8 @@ async def api_history(days: int = Query(default=7, ge=1, le=365), db: Session = 
 
 # ─── API: 土日振り返りセッション生成 ─── #
 @app.post("/api/sessions/weekend")
-async def api_create_weekend_session(db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def api_create_weekend_session(request: Request, db: Session = Depends(get_db)):
     """土日限定: 振り返り用チェックインセッションを 18:00〜21:00 の間に1件生成する"""
     today = date.today()
     if today.weekday() < 5:

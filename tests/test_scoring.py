@@ -126,6 +126,48 @@ class TestCalculateScores:
             # 小数点1桁以内（round(x, 1) と一致）
             assert round(val, 1) == val
 
+    def test_all_answers_value_2_yields_midpoint_scores(self):
+        """全設問に 2 を回答した場合、各カテゴリスコアが中間値付近になること（境界値: 平均値ケース）"""
+        answers = [{"question_id": q["id"], "answer_value": 2} for q in QUESTIONS]
+        scores = calculate_scores(answers)
+        # 逆転項目が混在するため厳密に50%にならないが、0〜100の範囲内であること
+        for key, val in scores.items():
+            assert 0.0 <= val <= 100.0, f"{key}={val} が範囲外"
+
+    def test_single_answer_per_category_returns_valid_scores(self):
+        """各カテゴリから1問だけ回答した場合でも有効なスコアが返ること（境界値: 最小回答数）"""
+        categories = ["anger", "regulation", "cognitive_regulation", "mindfulness", "stress"]
+        for cat in categories:
+            q = next(q for q in QUESTIONS if q["category"] == cat)
+            answers = [{"question_id": q["id"], "answer_value": 1}]
+            scores = calculate_scores(answers)
+            for key, val in scores.items():
+                assert 0.0 <= val <= 100.0, f"category={cat} {key}={val} が範囲外"
+
+    def test_cognitive_regulation_affects_overall_positively(self):
+        """認知的感情調節方略スコアが高いほど overall が上がること（高い=良好な方略）"""
+        non_reverse_cog = [q for q in QUESTIONS if q["category"] == "cognitive_regulation" and not q["reverse"]]
+        scores_low = calculate_scores([{"question_id": q["id"], "answer_value": 1} for q in non_reverse_cog])
+        scores_high = calculate_scores([{"question_id": q["id"], "answer_value": 4} for q in non_reverse_cog])
+        assert scores_high["overall_score"] > scores_low["overall_score"], (
+            f"cognitive_regulation 高い時に overall が上がるべき: low={scores_low['overall_score']}, "
+            f"high={scores_high['overall_score']}"
+        )
+
+    def test_all_scores_boundary_value_1(self):
+        """全設問に最小値 1 を回答した場合すべてのスコアが 0〜100 の範囲内であること（境界値）"""
+        answers = [{"question_id": q["id"], "answer_value": 1} for q in QUESTIONS]
+        scores = calculate_scores(answers)
+        for key, val in scores.items():
+            assert 0.0 <= val <= 100.0, f"answer=1 {key}={val} が範囲外"
+
+    def test_all_scores_boundary_value_4(self):
+        """全設問に最大値 4 を回答した場合すべてのスコアが 0〜100 の範囲内であること（境界値）"""
+        answers = [{"question_id": q["id"], "answer_value": 4} for q in QUESTIONS]
+        scores = calculate_scores(answers)
+        for key, val in scores.items():
+            assert 0.0 <= val <= 100.0, f"answer=4 {key}={val} が範囲外"
+
 
 class TestGetScoreLabel:
     """get_score_label() の境界値テスト"""

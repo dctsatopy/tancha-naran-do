@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, date, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,11 @@ def generate_daily_sessions():
             datetime(today.year, today.month, today.day, m // 60, m % 60).strftime("%H:%M")
             for m in minutes_pool
         ])
+    except SQLAlchemyError as e:
+        logger.error("Database error while generating daily sessions: %s", e)
+        db.rollback()
     except Exception as e:
-        logger.error("Failed to generate sessions: %s", e)
+        logger.error("Unexpected error while generating daily sessions: %s", e, exc_info=True)
         db.rollback()
     finally:
         db.close()
@@ -81,8 +85,11 @@ def generate_weekend_session():
         db.add(CheckInSession(scheduled_at=scheduled, status="pending"))
         db.commit()
         logger.info("Generated weekend check-in session: %s", scheduled.strftime("%H:%M"))
+    except SQLAlchemyError as e:
+        logger.error("Database error while generating weekend session: %s", e)
+        db.rollback()
     except Exception as e:
-        logger.error("Failed to generate weekend session: %s", e)
+        logger.error("Unexpected error while generating weekend session: %s", e, exc_info=True)
         db.rollback()
     finally:
         db.close()

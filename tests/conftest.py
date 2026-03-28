@@ -14,6 +14,7 @@ from unittest.mock import patch
 # ── テスト専用環境変数（app インポート前に設定する） ──────────────────────
 os.environ["DATABASE_URL"] = "sqlite:////tmp/tancha_naran_do_test.db"
 os.environ["LOG_DIR"] = "/tmp/tancha-test-logs"
+os.environ["DISABLE_RATE_LIMIT"] = "true"  # テスト中はレート制限を無効化
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

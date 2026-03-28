@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, date
 from sqlalchemy import Integer, Float, String, DateTime, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,6 +9,9 @@ class CheckInSession(Base):
     __tablename__ = "check_in_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    access_token: Mapped[str | None] = mapped_column(
+        String(36), unique=True, index=True, nullable=True, default=lambda: str(uuid.uuid4())
+    )
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

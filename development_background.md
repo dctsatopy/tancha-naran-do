@@ -130,6 +130,7 @@
 | カラム | 型 | 説明 |
 |---|---|---|
 | id | INTEGER PK | |
+| access_token | VARCHAR(36) UNIQUE | UUID v4。結果ページURL に使用し、連番IDによる推測を防止する |
 | scheduled_at | DATETIME | 予定時刻 |
 | started_at | DATETIME | 開始時刻 |
 | completed_at | DATETIME | 完了時刻 |
@@ -184,13 +185,21 @@ tancha-naran-do/
 │       ├── check_in.html
 │       ├── result.html
 │       └── dashboard.html
+├── alembic/                 Alembic マイグレーションスクリプト
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│       └── 0001_add_access_token_to_sessions.py
 ├── data/                    SQLite DB (Docker volume)
 ├── .github/
-│   └── workflows/
-│       └── ci.yml           GitHub Actions CI
+│   ├── workflows/
+│   │   └── ci.yml           GitHub Actions CI
+│   └── dependabot.yml       依存ライブラリ自動更新設定
+├── alembic.ini              Alembic 設定ファイル
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
+├── requirements-dev.txt
 └── .gitignore
 ```
 
@@ -233,6 +242,7 @@ tancha-naran-do/
 | ポート | 8080 |
 | ログ | stdout + `/data/logs/access.log`, `/data/logs/app.log`（RotatingFileHandler） |
 | 認証 | なし（ローカル利用想定） |
+| ヘルスチェック | `GET /health` → `{"status": "ok"}`（コンテナオーケストレーター向け） |
 
 ---
 
@@ -260,7 +270,29 @@ tancha-naran-do/
 | `limit` パラメータ | 1〜200 の範囲（範囲外 → 422） |
 | 完了済みセッションへの再送信 | `status == "completed"` のセッションへの POST → 409 |
 
-### 11.3 その他
+### 11.3 セッション識別子
+
+- 各 `CheckInSession` は UUID v4 形式の `access_token` を持つ
+- 結果ページ URL は `/check-in/result/{access_token}` の形式とし、連番整数による推測を防止する
+- 既存セッション（DB 移行前）に対してはアプリ起動時に自動で UUID を付与する（`_migrate_access_tokens()`）
+- Alembic マイグレーション `0001_add_access_token_to_sessions.py` でも対応可能
+
+### 11.4 CSRF 保護
+
+- `CsrfMiddleware` により POST リクエストの `Origin` / `Referer` ヘッダーを検証する
+- `Origin` ヘッダーが存在し、リクエストホストと不一致 → 403 を返す
+- `Origin` 不在で `Referer` ヘッダーが存在し、ホストを含まない → 403 を返す
+- ヘッダーが存在しない場合（API クライアント・テストクライアント等）は許可する
+
+### 11.5 レート制限
+
+- `slowapi` ライブラリによる IP アドレス単位のレート制限
+- `/check-in/submit`: 60回/分
+- `/api/sessions/weekend`: 10回/分
+- 制限超過時は 429 Too Many Requests を返す
+- 環境変数 `DISABLE_RATE_LIMIT=true` で無効化（テスト時に使用）
+
+### 11.6 その他
 
 - API ドキュメント（`/docs`, `/redoc`, `/openapi.json`）はデフォルト非公開（`ENABLE_DOCS=true` で有効化）
 - Docker コンテナは非 root ユーザー（`appuser`, UID=1000）で実行
@@ -282,6 +314,14 @@ tancha-naran-do/
 YYYY-MM-DD HH:MM:SS LEVEL    logger_name          message
 ```
 
+アクセスログには UUID v4 形式のリクエスト ID が含まれる：
+
+```
+2026-03-29 10:00:00 INFO     access               req_id=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx 127.0.0.1 GET / 200 12.3ms
+```
+
+リクエスト ID は `request.state.request_id` に格納されており、下流のハンドラーからも参照可能。
+
 ### 12.3 業務操作ログの出力タイミング
 
 | イベント | レベル | 内容 |
@@ -292,6 +332,8 @@ YYYY-MM-DD HH:MM:SS LEVEL    logger_name          message
 | 不正 question_id | WARNING | `[SUBMIT] Unknown question_id=999 session_id=N` |
 | 範囲外 answer_value | WARNING | `[SUBMIT] Out-of-range answer_value=9 question_id=1 session_id=N` |
 | 完了済みセッションへの再送信 | WARNING | `[SUBMIT] Already completed session_id=N` |
+| CSRF 保護による拒否 | WARNING | `[CSRF] Rejected POST from Origin=... (expected host=...) path=...` |
+| DB 操作エラー（スケジューラ） | ERROR | `Database error while generating daily sessions: ...` |
 
 ### 12.4 ローテーション設定
 
@@ -349,17 +391,17 @@ docker exec -w /app <container_id> python -m pytest tests/ -v
 docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### 13.5 テスト件数（2026-03-27 時点）
+### 13.5 テスト件数（2026-03-29 時点）
 
 | テストファイル | テストクラス | テスト件数 |
 |---|---|---|
-| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 20 |
+| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 26 |
 | test_questions_data.py | TestQuestionsData, TestQuestionById | 17 |
 | test_messages_data.py | TestRelaxationMessages, TestGetRandomMessage, TestGetMessages | 12 |
-| test_api.py | 9クラス（全エンドポイント + 週末セッション） | 67 |
-| test_security.py | 5クラス（ヘッダー・バリデーション・境界値） | 43 |
+| test_api.py | 9クラス（全エンドポイント + 週末セッション） | 69 |
+| test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 50 |
 | test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 19 |
-| **合計** | | **181** |
+| **合計** | | **193** |
 
 ---
 
@@ -387,3 +429,15 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-28 | セキュリティ強化（fix/security-hardening）: CSP ヘッダー追加、X-XSS-Protection 削除、SRI ハッシュ追加、キャッシュ制御、XSS 修正。§11.1 更新。 |
 | 2026-03-28 | 依存パッケージ・GitHub Actions をすべて最新安定版に更新。GitHub Actions はコミットハッシュ固定に変更。 |
 | 2026-03-28 | §4 設問出典を調査結果に基づき修正（CERQ: 橋本・田中 2005 → 榊原 2015、STAXI-2: 著作権確認不可として注記）。README.md に「出典・免責事項」セクション追加。 |
+| 2026-03-29 | コードレビュー対応（全11項目）。詳細は以下のとおり。 |
+| 2026-03-29 | [S-1] セッション識別子にランダムトークン（UUID v4）を導入。結果ページURLを `/check-in/result/{access_token}` 形式に変更し、連番整数による推測を防止。DB スキーマ変更: `check_in_sessions.access_token` カラム追加（§7, §11.3）。 |
+| 2026-03-29 | [S-2] CSRF 保護ミドルウェアを追加（`CsrfMiddleware`）。Origin/Referer ヘッダーを検証し、クロスオリジンからの不正 POST を 403 で拒否（§11.4）。 |
+| 2026-03-29 | [S-3] slowapi によるレート制限を導入。`/check-in/submit` 60回/分、`/api/sessions/weekend` 10回/分（§11.5）。 |
+| 2026-03-29 | [C-1] `scheduler.py` の例外処理を具体化。`SQLAlchemyError` とその他の `Exception` を分離してログ出力を改善（§12.3）。 |
+| 2026-03-29 | [C-2] アクセスログに UUID v4 形式のリクエスト ID を追加。リクエスト単位での追跡が可能に（§12.2）。 |
+| 2026-03-29 | [O-1] ヘルスチェックエンドポイント `GET /health` を追加（§10）。 |
+| 2026-03-29 | [O-2] Dependabot 設定（`.github/dependabot.yml`）を追加。pip および GitHub Actions の依存関係を週次で自動更新（§8）。 |
+| 2026-03-29 | [O-3] Alembic マイグレーション基盤を追加（`alembic.ini`, `alembic/env.py`, `alembic/versions/0001_add_access_token_to_sessions.py`）。`requirements-dev.txt` に `alembic` を追加（§8）。 |
+| 2026-03-29 | [T-1] スコア計算の境界値テストを6件追加（全回答値1/4・中間値・カテゴリ単独・認知的調節の方向性）。 |
+| 2026-03-29 | [T-2] 並行送信によるスコア重複保存が発生しないことを確認するテストを追加（`ThreadPoolExecutor` 使用）。 |
+| 2026-03-29 | テスト件数: 181 → 193 件（§13.5）。 |
