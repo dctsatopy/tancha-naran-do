@@ -1,7 +1,7 @@
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
-sqlalchemy==2.0.36
-jinja2==3.1.4
-python-multipart==0.0.12
-apscheduler==3.10.4
-aiofiles==24.1.0
+fastapi==0.135.2
+uvicorn[standard]==0.42.0
+sqlalchemy==2.0.48
+jinja2==3.1.6
+python-multipart==0.0.22
+apscheduler==3.11.2
+aiofiles==25.1.0
