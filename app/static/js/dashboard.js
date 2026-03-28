@@ -107,12 +107,20 @@ async function loadHistoryTable() {
     tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">データがありません</td></tr>';
     return;
   }
+  const statusMap = {
+    pending: '<span class="badge bg-light text-dark">予定</span>',
+    in_progress: '<span class="badge bg-warning">実施中</span>',
+    completed: '<span class="badge bg-success">完了</span>',
+    skipped: '<span class="badge bg-secondary">スキップ</span>',
+  };
   tbody.innerHTML = sessions.map(s => {
     const dt = new Date(s.scheduled_at);
     const dtStr = dt.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const statusMap = { pending: '<span class="badge bg-light text-dark">予定</span>', in_progress: '<span class="badge bg-warning">実施中</span>', completed: '<span class="badge bg-success">完了</span>', skipped: '<span class="badge bg-secondary">スキップ</span>' };
+    const statusHtml = Object.prototype.hasOwnProperty.call(statusMap, s.status)
+      ? statusMap[s.status]
+      : '<span class="badge bg-secondary">不明</span>';
     const scoreStr = s.overall_score != null ? `<strong>${Math.round(s.overall_score)}</strong> 点` : '—';
-    return `<tr><td>${dtStr}</td><td>${statusMap[s.status] || s.status}</td><td>${scoreStr}</td></tr>`;
+    return `<tr><td>${dtStr}</td><td>${statusHtml}</td><td>${scoreStr}</td></tr>`;
   }).join('');
 }
 
