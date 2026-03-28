@@ -309,7 +309,10 @@ YYYY-MM-DD HH:MM:SS LEVEL    logger_name          message
 2. **テストを先に書く**（Red フェーズ）
 3. **実装を行う**（Green フェーズ）
 4. **リファクタリング**（Refactor フェーズ）
-5. 作業ブランチを作成し PR を出す（`main` への直接コミット禁止）
+5. **テストを実行し、全件 PASSED を確認する**
+6. 作業ブランチを作成し PR を出す（`main` への直接コミット禁止）
+
+> **重要**: commit / push / PR 作成の前に、必ず `pytest` を実行してすべてのテストが通ることを確認すること。
 
 ### 13.2 テストスイート構成
 
@@ -328,7 +331,7 @@ tests/
 
 | 項目 | 内容 |
 |---|---|
-| フレームワーク | pytest 8.x |
+| フレームワーク | pytest 9.x |
 | HTTP クライアント | FastAPI TestClient (httpx) |
 | テスト DB | SQLite インメモリ（`/tmp/tancha_naran_do_test.db`） |
 | 時刻モック | freezegun |

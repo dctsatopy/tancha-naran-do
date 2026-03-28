@@ -117,8 +117,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     score_label, score_class = get_score_label(latest_score.overall_score) if latest_score else ("—", "secondary")
     message = get_random_message()
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "sessions_today": sessions_today,
         "completed_today": completed_today,
         "pending_session": pending_session,
@@ -160,8 +159,7 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
     sampled = rng.sample(QUESTIONS, min(QUESTIONS_PER_SESSION, len(QUESTIONS)))
     message = get_random_message()
 
-    return templates.TemplateResponse("check_in.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "check_in.html", {
         "session": session,
         "questions": sampled,
         "message": message,
@@ -280,8 +278,7 @@ async def result_page(request: Request, session_id: int, db: Session = Depends(g
         .first()
     )
 
-    return templates.TemplateResponse("result.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "result.html", {
         "session": session,
         "score": score,
         "score_label": score_label,
@@ -295,7 +292,7 @@ async def result_page(request: Request, session_id: int, db: Session = Depends(g
 # ─── ダッシュボード ─── #
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "dashboard.html")
 
 
 # ─── API: チェックイン状態確認（ポーリング用）─── #
