@@ -69,14 +69,14 @@
 
 以下の検証済み心理尺度を参考に、日常的なセルフチェック用に編集した設問を使用する。
 
-| カテゴリ | 参考尺度 | 問数 |
-|---|---|---|
-| 怒り感情（状態・特性・表出・制御） | STAXI-2 日本語版（菅原 et al., 2000） | 50問 |
-| 感情調節困難 | DERS 日本語版（Difficulties in Emotion Regulation Scale） | 40問 |
-| 認知的感情調節方略 | CERQ 日本語版（橋本・田中, 2005） | 40問 |
-| マインドフルネス | FFMQ 日本語版（杉浦 et al., 2012） | 40問 |
-| ストレスと対処 | PSS・ソーシャルサポート尺度・コーピング尺度 | 30問 |
-| **合計** | | **200問** |
+| カテゴリ | 参考尺度 | 日本語版出典 | 問数 |
+|---|---|---|---|
+| 怒り感情（状態・特性・表出・制御） | STAXI-2 日本語版 | PAR 社著作権保有・公開文献での邦訳確認不可 | 50問 |
+| 感情調節困難 | DERS 日本語版 | 山田圭介・杉江征 (2013), *感情心理学研究* 20(3), 86–95. DOI: 10.4092/jsre.20.86 | 40問 |
+| 認知的感情調節方略 | CERQ 日本語版 | 榊原良太 (2015), *感情心理学研究* 23(1), 46–58. | 40問 |
+| マインドフルネス | FFMQ 日本語版 | Sugiura et al. (2012), *Mindfulness* 3(2), 85–94. DOI: 10.1007/s12671-011-0082-1 | 40問 |
+| ストレスと対処 | PSS 日本語版 | 鷲見克典 (2006), *健康心理学研究* 19(2), 44–53. DOI: 10.11560/jahp.19.2_44 | 30問 |
+| **合計** | | | **200問** |
 
 > **注記**: 設問は上記尺度を参考に日常チェック用として再編集したものです。
 > 医療診断目的ではなく、個人的な感情セルフモニタリングを目的としています。
@@ -242,10 +242,12 @@ tancha-naran-do/
 
 | ヘッダー | 値 |
 |---|---|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; font-src https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'` |
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
-| `X-XSS-Protection` | `1; mode=block` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+> **注記**: `X-XSS-Protection` は現代のブラウザでは非推奨のため削除。CSP ヘッダーで代替する。
 
 ### 11.2 入力バリデーション
 
@@ -382,3 +384,6 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-28 | overall スコア計算修正: regulation_score を反転（DERS は高い=困難=悪い状態のため `(100-regulation)×0.2` に統一）。 |
 | 2026-03-28 | 週末振り返りチェックイン機能を追加（§3.5）。土日にホーム画面でモーダルプロンプト表示、`POST /api/sessions/weekend` で 18:00〜21:00 にセッション生成。 |
 | 2026-03-28 | GitHub Actions CI を再構成: pytest ジョブ → Docker build ジョブ（push なし）の2ジョブ構成に変更。スモークテストを pytest に置き換え。 |
+| 2026-03-28 | セキュリティ強化（fix/security-hardening）: CSP ヘッダー追加、X-XSS-Protection 削除、SRI ハッシュ追加、キャッシュ制御、XSS 修正。§11.1 更新。 |
+| 2026-03-28 | 依存パッケージ・GitHub Actions をすべて最新安定版に更新。GitHub Actions はコミットハッシュ固定に変更。 |
+| 2026-03-28 | §4 設問出典を調査結果に基づき修正（CERQ: 橋本・田中 2005 → 榊原 2015、STAXI-2: 著作権確認不可として注記）。README.md に「出典・免責事項」セクション追加。 |
