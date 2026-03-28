@@ -94,11 +94,11 @@ class TestCheckInPageEndpoint:
         assert res.status_code == 404
 
     def test_completed_session_redirects_to_result(self, client, db_session):
-        """完了済みセッションでアクセスすると結果画面にリダイレクトされること"""
+        """完了済みセッションでアクセスすると結果画面にリダイレクトされること（access_token ベースURL）"""
         session = make_completed_session(db_session)
         res = client.get(f"/check-in?session_id={session.id}")
         assert res.status_code == 307  # または 302/303
-        assert f"/check-in/result/{session.id}" in res.headers["location"]
+        assert f"/check-in/result/{session.access_token}" in res.headers["location"]
 
     def test_session_id_zero_returns_404(self, client):
         """session_id=0 は 404 になること（is not None チェック）"""
@@ -137,12 +137,13 @@ class TestSubmitEndpoint:
         return data
 
     def test_valid_submission_redirects_to_result(self, client, db_session):
-        """有効な回答送信は 303 リダイレクトになること"""
+        """有効な回答送信は 303 リダイレクトになること（access_token ベース URL）"""
         session = make_session(db_session, status="in_progress")
         form = self._valid_form(session.id, list(range(1, 11)))
         res = client.post("/check-in/submit", data=form)
         assert res.status_code == 303
-        assert f"/check-in/result/{session.id}" in res.headers["location"]
+        db_session.refresh(session)
+        assert f"/check-in/result/{session.access_token}" in res.headers["location"]
 
     def test_valid_submission_completes_session(self, client, db_session):
         """有効な送信でセッション status が completed になること"""
@@ -229,30 +230,50 @@ class TestSubmitEndpoint:
         res = client.post("/check-in/submit", data=form)  # 2回目（重複）
         assert res.status_code == 409
 
+    def test_concurrent_submission_no_duplicate_scores(self, client, db_session):
+        """並行送信でスコアが重複保存されないこと（仕様 §11.2）"""
+        import concurrent.futures
+        from app.models import EmotionalScore
+
+        session = make_session(db_session, status="in_progress")
+        form = self._valid_form(session.id, list(range(1, 11)))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(client.post, "/check-in/submit", data=form) for _ in range(3)]
+            status_codes = [f.result().status_code for f in concurrent.futures.as_completed(futures)]
+
+        # 成功（303）は最大1件、残りは 409
+        success_count = sum(1 for s in status_codes if s == 303)
+        assert success_count <= 1, f"複数の成功レスポンスが返りました: {status_codes}"
+
+        # DB でスコアが1件以下であることを確認（重複保存なし）
+        score_count = db_session.query(EmotionalScore).filter_by(session_id=session.id).count()
+        assert score_count <= 1, f"スコアが重複保存されました: {score_count}件"
+
 
 class TestResultEndpoint:
-    """GET /check-in/result/{session_id} — 結果画面"""
+    """GET /check-in/result/{access_token} — 結果画面"""
 
     def test_returns_200_for_completed_session(self, client, db_session):
         """完了済みセッションで結果画面が表示されること"""
         session = make_completed_session(db_session)
-        res = client.get(f"/check-in/result/{session.id}")
+        res = client.get(f"/check-in/result/{session.access_token}")
         assert res.status_code == 200
 
     def test_returns_html(self, client, db_session):
         session = make_completed_session(db_session)
-        res = client.get(f"/check-in/result/{session.id}")
+        res = client.get(f"/check-in/result/{session.access_token}")
         assert "text/html" in res.headers["content-type"]
 
     def test_contains_score(self, client, db_session):
         """スコアが表示されること"""
         session = make_completed_session(db_session)
-        res = client.get(f"/check-in/result/{session.id}")
+        res = client.get(f"/check-in/result/{session.access_token}")
         assert "点" in res.text
 
-    def test_invalid_session_id_returns_404(self, client):
-        """存在しない session_id は 404 になること"""
-        res = client.get("/check-in/result/99999")
+    def test_invalid_token_returns_404(self, client):
+        """存在しないアクセストークンは 404 になること"""
+        res = client.get("/check-in/result/00000000-0000-0000-0000-000000000000")
         assert res.status_code == 404
 
 

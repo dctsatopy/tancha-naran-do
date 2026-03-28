@@ -155,6 +155,63 @@ class TestInputValidationQuestionId:
         assert res.status_code == 400
 
 
+class TestHealthEndpoint:
+    """GET /health — ヘルスチェックエンドポイント（仕様 §10）"""
+
+    def test_returns_200(self, client):
+        """ヘルスチェックが 200 を返すこと"""
+        res = client.get("/health")
+        assert res.status_code == 200
+
+    def test_returns_ok_status(self, client):
+        """ヘルスチェックレスポンスに status=ok が含まれること"""
+        data = client.get("/health").json()
+        assert data.get("status") == "ok"
+
+
+class TestCsrfProtection:
+    """CSRF 保護（Origin / Referer ヘッダー検証）"""
+
+    def test_post_with_valid_origin_accepted(self, client, db_session):
+        """正しい Origin ヘッダーを持つ POST は受け付けられること"""
+        session = make_session(db_session, status="in_progress")
+        res = client.post(
+            "/check-in/submit",
+            data={"session_id": str(session.id), "q_1": "2"},
+            headers={"Origin": "http://testserver"},
+        )
+        # CSRF 拒否（403）でなければ OK
+        assert res.status_code != 403
+
+    def test_post_with_invalid_origin_rejected(self, client):
+        """異なる Origin ヘッダーを持つ POST は 403 で拒否されること"""
+        res = client.post(
+            "/check-in/submit",
+            data={"session_id": "1", "q_1": "2"},
+            headers={"Origin": "https://malicious-site.example.com"},
+        )
+        assert res.status_code == 403
+
+    def test_post_with_invalid_referer_rejected(self, client):
+        """異なるドメインの Referer を持つ POST は 403 で拒否されること"""
+        res = client.post(
+            "/check-in/submit",
+            data={"session_id": "1", "q_1": "2"},
+            headers={"Referer": "https://malicious-site.example.com/evil-page"},
+        )
+        assert res.status_code == 403
+
+    def test_post_without_origin_or_referer_accepted(self, client, db_session):
+        """Origin/Referer なしの POST（API クライアント等）は許可されること"""
+        session = make_session(db_session, status="in_progress")
+        res = client.post(
+            "/check-in/submit",
+            data={"session_id": str(session.id), "q_1": "2"},
+        )
+        # CSRF 拒否（403）でなければ OK
+        assert res.status_code != 403
+
+
 class TestApiParameterBounds:
     """API パラメータの上限・下限バリデーション"""
 
