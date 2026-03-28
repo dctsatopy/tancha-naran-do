@@ -10,9 +10,19 @@ import pytest
 from tests.conftest import make_session
 
 SECURITY_HEADERS = {
+    "content-security-policy": (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "font-src https://cdn.jsdelivr.net data:; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    ),
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
-    "x-xss-protection": "1; mode=block",
     "referrer-policy": "strict-origin-when-cross-origin",
 }
 

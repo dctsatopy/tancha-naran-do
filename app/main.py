@@ -31,13 +31,26 @@ _ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
 VALID_ANSWER_VALUES = {1, 2, 3, 4}
 
 
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "font-src https://cdn.jsdelivr.net data:; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "form-action 'self'; "
+    "base-uri 'self'; "
+    "frame-ancestors 'none'"
+)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """すべてのレスポンスにセキュリティヘッダーを付与する"""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
+        response.headers["Content-Security-Policy"] = _CSP
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
@@ -278,7 +291,7 @@ async def result_page(request: Request, session_id: int, db: Session = Depends(g
         .first()
     )
 
-    return templates.TemplateResponse(request, "result.html", {
+    response = templates.TemplateResponse(request, "result.html", {
         "session": session,
         "score": score,
         "score_label": score_label,
@@ -287,6 +300,8 @@ async def result_page(request: Request, session_id: int, db: Session = Depends(g
         "messages": messages,
         "next_session": next_session,
     })
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ─── ダッシュボード ─── #
