@@ -25,8 +25,8 @@ def calculate_scores(answers: list[dict]) -> dict:
 
     anger_raw = avg(category_scores["anger"])          # 高い = 怒り強い (bad)
     regulation_raw = avg(category_scores["regulation"])  # 高い = 調節困難 (bad)
-    cognitive_raw = avg(category_scores["cognitive_regulation"])  # 高い = 良好な方略 (good)
-    mindfulness_raw = avg(category_scores["mindfulness"])
+    cognitive_raw = avg(category_scores["cognitive_regulation"])  # 低い = 良好な方略 (good)、高い = 不良な方略 (bad)
+    mindfulness_raw = avg(category_scores["mindfulness"])  # 低い = マインドフルネス良好 (good)、高い = 不良 (bad)
     stress_raw = avg(category_scores["stress"])
 
     # 正規化: 各カテゴリを 0-100 スケールに変換（逆転項目は questions_data 側で処理済み）
@@ -37,15 +37,14 @@ def calculate_scores(answers: list[dict]) -> dict:
     stress_score = round((stress_raw - 1) / 3 * 100, 1)
 
     # overall: 各指標を重み付け合算（合計 1.0）
-    # anger/regulation/stress は「低いほど良い」→ (100 - score) で反転
-    # mindfulness/cognitive は「高いほど良い」→ そのまま
+    # 全カテゴリとも「スコアが低いほど良好」→ (100 - score) で反転して合算
     overall = round(
         (
             (100 - anger_score) * 0.3
             + (100 - regulation_score) * 0.2
             + (100 - stress_score) * 0.2
-            + mindfulness_score * 0.2
-            + cognitive_score * 0.1
+            + (100 - mindfulness_score) * 0.2
+            + (100 - cognitive_score) * 0.1
         ),
         1,
     )
