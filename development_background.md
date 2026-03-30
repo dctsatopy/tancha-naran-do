@@ -155,9 +155,9 @@
 | date | DATE | |
 | anger_score | FLOAT | 怒りスコア（低いほど良好） |
 | regulation_score | FLOAT | 感情調節スコア（高いほど良好） |
-| mindfulness_score | FLOAT | マインドフルネススコア（高いほど良好） |
+| mindfulness_score | FLOAT | マインドフルネススコア（低いほど良好） |
 | stress_score | FLOAT | ストレススコア（低いほど良好） |
-| overall_score | FLOAT | 総合スコア (0〜100、高いほど良好)。計算式: (100-anger)×0.3 + (100-regulation)×0.2 + (100-stress)×0.2 + mindfulness×0.2 + cognitive_regulation×0.1 |
+| overall_score | FLOAT | 総合スコア (0〜100、高いほど良好)。計算式: (100-anger)×0.3 + (100-regulation)×0.2 + (100-stress)×0.2 + (100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1 |
 
 ---
 
@@ -391,7 +391,7 @@ docker exec -w /app <container_id> python -m pytest tests/ -v
 docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### 13.5 テスト件数（2026-03-29 時点）
+### 13.5 テスト件数（2026-03-30 時点）
 
 | テストファイル | テストクラス | テスト件数 |
 |---|---|---|
@@ -441,3 +441,4 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-29 | [T-1] スコア計算の境界値テストを6件追加（全回答値1/4・中間値・カテゴリ単独・認知的調節の方向性）。 |
 | 2026-03-29 | [T-2] 並行送信によるスコア重複保存が発生しないことを確認するテストを追加（`ThreadPoolExecutor` 使用）。 |
 | 2026-03-29 | テスト件数: 181 → 193 件（§13.5）。 |
+| 2026-03-30 | バグ修正: mindfulness・cognitive_regulation の overall スコア方向を統一。逆転項目（reverse=True）の設計に合わせ、全カテゴリ「低い=良好」に統一。overall 計算式を `(100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1` に修正（§7）。依存: alembic 1.16.1 → 1.18.4。 |
