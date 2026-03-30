@@ -145,13 +145,16 @@ class TestCalculateScores:
                 assert 0.0 <= val <= 100.0, f"category={cat} {key}={val} が範囲外"
 
     def test_cognitive_regulation_affects_overall_positively(self):
-        """認知的感情調節方略スコアが高いほど overall が上がること（高い=良好な方略）"""
-        non_reverse_cog = [q for q in QUESTIONS if q["category"] == "cognitive_regulation" and not q["reverse"]]
-        scores_low = calculate_scores([{"question_id": q["id"], "answer_value": 1} for q in non_reverse_cog])
-        scores_high = calculate_scores([{"question_id": q["id"], "answer_value": 4} for q in non_reverse_cog])
-        assert scores_high["overall_score"] > scores_low["overall_score"], (
-            f"cognitive_regulation 高い時に overall が上がるべき: low={scores_low['overall_score']}, "
-            f"high={scores_high['overall_score']}"
+        """良好な認知的感情調節方略（逆転項目への同意）ほど overall が上がること"""
+        # 逆転項目 = ポジティブな方略（受容・再評価・計画など）
+        # 同意（value=4）→ 実効スコア 1 → cognitive_score 低 → overall 高
+        # 不同意（value=1）→ 実効スコア 4 → cognitive_score 高 → overall 低
+        reverse_cog = [q for q in QUESTIONS if q["category"] == "cognitive_regulation" and q["reverse"]]
+        scores_poor = calculate_scores([{"question_id": q["id"], "answer_value": 1} for q in reverse_cog])
+        scores_good = calculate_scores([{"question_id": q["id"], "answer_value": 4} for q in reverse_cog])
+        assert scores_good["overall_score"] > scores_poor["overall_score"], (
+            f"良好な認知的感情調節方略の時に overall が上がるべき: poor={scores_poor['overall_score']}, "
+            f"good={scores_good['overall_score']}"
         )
 
     def test_all_scores_boundary_value_1(self):
