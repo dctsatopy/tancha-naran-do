@@ -154,7 +154,7 @@
 | session_id | INTEGER FK | |
 | date | DATE | |
 | anger_score | FLOAT | 怒りスコア（低いほど良好） |
-| regulation_score | FLOAT | 感情調節スコア（高いほど良好） |
+| regulation_score | FLOAT | 感情調節スコア（低いほど良好）。DERS 参考のため高スコア = 調節困難 = 悪い状態 |
 | mindfulness_score | FLOAT | マインドフルネススコア（低いほど良好） |
 | stress_score | FLOAT | ストレススコア（低いほど良好） |
 | overall_score | FLOAT | 総合スコア (0〜100、高いほど良好)。計算式: (100-anger)×0.3 + (100-regulation)×0.2 + (100-stress)×0.2 + (100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1 |
@@ -442,3 +442,4 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-29 | [T-2] 並行送信によるスコア重複保存が発生しないことを確認するテストを追加（`ThreadPoolExecutor` 使用）。 |
 | 2026-03-29 | テスト件数: 181 → 193 件（§13.5）。 |
 | 2026-03-30 | バグ修正: mindfulness・cognitive_regulation の overall スコア方向を統一。逆転項目（reverse=True）の設計に合わせ、全カテゴリ「低い=良好」に統一。overall 計算式を `(100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1` に修正（§7）。依存: alembic 1.16.1 → 1.18.4。 |
+| 2026-04-02 | 仕様書ドキュメントバグ修正: `regulation_score` の方向性説明を「高いほど良好」→「低いほど良好」に修正（§7）。2026-03-28 のコード修正（DERS は高い=困難=悪い）が仕様書に未反映だったため。 |
