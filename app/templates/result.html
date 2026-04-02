@@ -27,6 +27,7 @@
 
         {% if score %}
         <hr>
+        <p class="text-muted small mb-1 mt-2">※ サブスコアはすべて低いほど良好</p>
         <div class="row g-2 text-start mt-1">
           <div class="col-6">
             <div class="score-detail-item">
@@ -39,18 +40,18 @@
           </div>
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">感情調節</span>
+              <span class="score-detail-label">感情調節困難</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-info" style="width:{{ score.regulation_score }}%"></div>
+                <div class="progress-bar bg-warning" style="width:{{ score.regulation_score }}%"></div>
               </div>
               <small class="text-muted">{{ score.regulation_score|int }}点</small>
             </div>
           </div>
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">マインドフルネス</span>
+              <span class="score-detail-label">マインドフルネス難度</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-success" style="width:{{ score.mindfulness_score }}%"></div>
+                <div class="progress-bar bg-warning" style="width:{{ score.mindfulness_score }}%"></div>
               </div>
               <small class="text-muted">{{ score.mindfulness_score|int }}点</small>
             </div>
