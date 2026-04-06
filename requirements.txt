@@ -1,6 +1,6 @@
 fastapi==0.135.2
 uvicorn[standard]==0.42.0
-sqlalchemy==2.0.48
+sqlalchemy==2.0.49
 jinja2==3.1.6
 python-multipart==0.0.22
 apscheduler==3.11.2
