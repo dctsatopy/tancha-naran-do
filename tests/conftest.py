@@ -100,10 +100,11 @@ def make_completed_session(db):
 
     from datetime import date
     scores = calculate_scores(answers_data)
+    score_fields = {k: v for k, v in scores.items() if k.endswith("_score")}
     db.add(EmotionalScore(
         session_id=session.id,
         date=date.today(),
-        **scores,
+        **score_fields,
     ))
     db.commit()
     db.refresh(session)

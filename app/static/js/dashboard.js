@@ -2,14 +2,15 @@ let overallChart, categoryChart, radarChart;
 
 const CHART_COLORS = {
   overall: 'rgb(58, 123, 213)',
-  anger: 'rgb(231, 76, 60)',
-  regulation: 'rgb(52, 152, 219)',
-  mindfulness: 'rgb(39, 174, 96)',
-  stress: 'rgb(243, 156, 18)',
+  anger_state: 'rgb(231, 76, 60)',
+  cognitive_pattern: 'rgb(155, 89, 182)',
+  physiological: 'rgb(52, 152, 219)',
+  behavioral: 'rgb(243, 156, 18)',
+  emotion_regulation: 'rgb(39, 174, 96)',
+  psychological_state: 'rgb(149, 165, 166)',
 };
 
 async function loadChart(days) {
-  // ボタンのアクティブ切り替え
   document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
   const activeBtn = document.getElementById('btn-' + days);
   if (activeBtn) activeBtn.classList.add('active');
@@ -19,12 +20,13 @@ async function loadChart(days) {
 
   const labels = data.map(d => d.date);
   const overall = data.map(d => d.overall);
-  const anger = data.map(d => d.anger);
-  const regulation = data.map(d => d.regulation);
-  const mindfulness = data.map(d => d.mindfulness);
-  const stress = data.map(d => d.stress);
+  const angerState = data.map(d => d.anger_state);
+  const cognitivePattern = data.map(d => d.cognitive_pattern);
+  const physiological = data.map(d => d.physiological);
+  const behavioral = data.map(d => d.behavioral);
+  const emotionRegulation = data.map(d => d.emotion_regulation);
+  const psychologicalState = data.map(d => d.psychological_state);
 
-  // ─── 総合スコアグラフ ─── //
   const overallCtx = document.getElementById('overallChart').getContext('2d');
   if (overallChart) overallChart.destroy();
   overallChart = new Chart(overallCtx, {
@@ -51,7 +53,6 @@ async function loadChart(days) {
     },
   });
 
-  // ─── カテゴリ別グラフ ─── //
   const catCtx = document.getElementById('categoryChart').getContext('2d');
   if (categoryChart) categoryChart.destroy();
   categoryChart = new Chart(catCtx, {
@@ -59,31 +60,32 @@ async function loadChart(days) {
     data: {
       labels,
       datasets: [
-        { label: '怒り', data: anger, borderColor: CHART_COLORS.anger, tension: 0.4, pointRadius: 4 },
-        { label: '感情調節', data: regulation, borderColor: CHART_COLORS.regulation, tension: 0.4, pointRadius: 4 },
-        { label: 'マインドフルネス', data: mindfulness, borderColor: CHART_COLORS.mindfulness, tension: 0.4, pointRadius: 4 },
-        { label: 'ストレス', data: stress, borderColor: CHART_COLORS.stress, tension: 0.4, pointRadius: 4 },
+        { label: '怒りの状態', data: angerState, borderColor: CHART_COLORS.anger_state, tension: 0.4, pointRadius: 4 },
+        { label: '認知パターン', data: cognitivePattern, borderColor: CHART_COLORS.cognitive_pattern, tension: 0.4, pointRadius: 4 },
+        { label: '身体反応', data: physiological, borderColor: CHART_COLORS.physiological, tension: 0.4, pointRadius: 4 },
+        { label: '行動傾向', data: behavioral, borderColor: CHART_COLORS.behavioral, tension: 0.4, pointRadius: 4 },
+        { label: '感情調節', data: emotionRegulation, borderColor: CHART_COLORS.emotion_regulation, tension: 0.4, pointRadius: 4 },
+        { label: '心理的状態', data: psychologicalState, borderColor: CHART_COLORS.psychological_state, tension: 0.4, pointRadius: 4 },
       ],
     },
     options: {
       responsive: true,
       scales: {
-        y: { min: 0, max: 100, title: { display: true, text: 'スコア' } },
+        y: { min: 0, max: 100, title: { display: true, text: 'スコア（低い=良好）' } },
       },
     },
   });
 
-  // ─── レーダーチャート（全期間平均）─── //
   const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
   const radarCtx = document.getElementById('radarChart').getContext('2d');
   if (radarChart) radarChart.destroy();
   radarChart = new Chart(radarCtx, {
     type: 'radar',
     data: {
-      labels: ['怒り制御\n(低い=良)', '感情調節', 'マインドフルネス', 'ストレス\n(低い=良)', '総合'],
+      labels: ['怒りの状態\n(低い=良)', '認知パターン\n(低い=良)', '身体反応\n(低い=良)', '行動傾向\n(低い=良)', '感情調節\n(低い=良)', '心理的状態\n(低い=良)'],
       datasets: [{
-        label: '平均スコア',
-        data: [100 - avg(anger), avg(regulation), avg(mindfulness), 100 - avg(stress), avg(overall)],
+        label: '平均スコア（反転: 高い=良好）',
+        data: [100 - avg(angerState), 100 - avg(cognitivePattern), 100 - avg(physiological), 100 - avg(behavioral), 100 - avg(emotionRegulation), 100 - avg(psychologicalState)],
         backgroundColor: 'rgba(58,123,213,0.2)',
         borderColor: CHART_COLORS.overall,
         pointBackgroundColor: CHART_COLORS.overall,
@@ -95,7 +97,6 @@ async function loadChart(days) {
     },
   });
 
-  // ─── 履歴テーブル ─── //
   await loadHistoryTable();
 }
 
