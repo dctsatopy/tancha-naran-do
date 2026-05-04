@@ -382,7 +382,7 @@ class TestApiHistoryEndpoint:
         data = client.get("/api/history?days=7").json()
         if data:
             entry = data[0]
-            for key in ["date", "overall", "anger", "regulation", "mindfulness", "stress"]:
+            for key in ["date", "overall", "anger_state", "cognitive_pattern", "physiological", "behavioral", "emotion_regulation", "psychological_state"]:
                 assert key in entry, f"'{key}' キーが見つかりません"
 
 

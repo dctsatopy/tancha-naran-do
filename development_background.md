@@ -26,10 +26,10 @@
 
 | 項目 | 仕様 |
 |---|---|
-| 実施タイミング | 平日（月〜金）9:00〜18:00 の間にランダムで 1日3回 |
-| 設問数/セッション | 1セッションあたり 10〜12問（約5分で回答可能） |
-| 設問総数 | 200問（7カテゴリ） |
-| 出題方式 | 200問からランダムに選出 |
+| 実施タイミング | 曜日問わず（平日・休祝日共通）9:00〜22:00 の間にランダムで 1日2回 |
+| 設問数/セッション | 1セッションあたり 8〜10問（約5分で回答可能） |
+| 設問総数 | 120問（6カテゴリ） |
+| 出題方式 | 120問からランダムに選出 |
 | 回答形式 | 4段階リッカート尺度（1〜4） |
 
 - 同一セッションのチェックイン画面は再アクセス時も同じ問題セットを表示する（セッションIDをシードにした固定サンプリング）
@@ -59,7 +59,7 @@
 
 ### 3.4 通知機能
 
-- スケジューラが毎朝0時に当日の3回分のチェックイン時刻を生成・保存
+- スケジューラが毎朝0時に当日の2回分のチェックイン時刻を生成・保存
 - フロントエンドが30秒ごとにポーリングし、チェックイン時刻になったらブラウザ通知を表示
 - ブラウザ Notifications API を使用
 
@@ -67,19 +67,23 @@
 
 ## 4. 設問の出典・根拠
 
-以下の検証済み心理尺度を参考に、日常的なセルフチェック用に編集した設問を使用する。
+以下の検証済み心理尺度・認知行動療法（CBT）の理論を参考に、日常的な状態チェック用に編集した設問を使用する。
 
-| カテゴリ | 参考尺度 | 日本語版出典 | 問数 |
+| カテゴリ | 参考尺度・理論 | 主要出典 | 問数 |
 |---|---|---|---|
-| 怒り感情（状態・特性・表出・制御） | STAXI-2 日本語版 | PAR 社著作権保有・公開文献での邦訳確認不可 | 50問 |
-| 感情調節困難 | DERS 日本語版 | 山田圭介・杉江征 (2013), *感情心理学研究* 20(3), 86–95. DOI: 10.4092/jsre.20.86 | 40問 |
-| 認知的感情調節方略 | CERQ 日本語版 | 榊原良太 (2015), *感情心理学研究* 23(1), 46–58. | 40問 |
-| マインドフルネス | FFMQ 日本語版 | Sugiura et al. (2012), *Mindfulness* 3(2), 85–94. DOI: 10.1007/s12671-011-0082-1 | 40問 |
-| ストレスと対処 | PSS 日本語版 | 鷲見克典 (2006), *健康心理学研究* 19(2), 44–53. DOI: 10.11560/jahp.19.2_44 | 30問 |
-| **合計** | | | **200問** |
+| 怒りの状態 (anger_state) | STAXI-2 State Anger, DAR-5, CAS | Spielberger (1999); Forbes et al. (2014); Snell et al. (1995) | 25問 |
+| 認知パターン (cognitive_pattern) | Beck の認知的歪み, Novaco Cognitive | Beck (1976); Novaco (1994); Burns (1980) | 25問 |
+| 身体反応 (physiological) | Novaco Arousal, InAn Factor 1 | Novaco (1994); Ferretti et al. (2025, BMC Psychiatry) | 15問 |
+| 行動傾向 (behavioral) | Novaco Behavioral, STAXI-2 Expression | Novaco (1994); Spielberger (1999) | 20問 |
+| 感情調節 (emotion_regulation) | DERS, InAn Factor 2, CERQ | Gratz & Roemer (2004); Garnefski et al. (2001) | 20問 |
+| 心理的状態 (psychological_state) | K6, PANAS | Kessler et al. (2003); Watson et al. (1988) | 15問 |
+| **合計** | | | **120問** |
 
-> **注記**: 設問は上記尺度を参考に日常チェック用として再編集したものです。
+> **注記**: 設問は上記尺度・理論を参考に日常の状態チェック用として再編集したものです。
 > 医療診断目的ではなく、個人的な感情セルフモニタリングを目的としています。
+> 特に認知パターンカテゴリは CBT（認知行動療法）の枠組みに基づき、怒りに関連する
+> 認知的歪み（べき思考・読心術・破局化・反芻・敵意帰属・ラベリング・白黒思考）を
+> 状態レベルで評価できるよう設計しています。
 
 ---
 
@@ -153,11 +157,40 @@
 | id | INTEGER PK | |
 | session_id | INTEGER FK | |
 | date | DATE | |
-| anger_score | FLOAT | 怒りスコア（低いほど良好） |
-| regulation_score | FLOAT | 感情調節スコア（低いほど良好）。DERS 参考のため高スコア = 調節困難 = 悪い状態 |
-| mindfulness_score | FLOAT | マインドフルネススコア（低いほど良好） |
-| stress_score | FLOAT | ストレススコア（低いほど良好） |
-| overall_score | FLOAT | 総合スコア (0〜100、高いほど良好)。計算式: (100-anger)×0.3 + (100-regulation)×0.2 + (100-stress)×0.2 + (100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1 |
+| anger_state_score | FLOAT | 怒りの状態スコア (0〜100、低いほど良好) |
+| cognitive_pattern_score | FLOAT | 認知パターンスコア (0〜100、低いほど良好)。認知的歪みの強さを反映 |
+| physiological_score | FLOAT | 身体反応スコア (0〜100、低いほど良好)。身体的覚醒の強さを反映 |
+| behavioral_score | FLOAT | 行動傾向スコア (0〜100、低いほど良好)。攻撃的行動傾向の強さを反映 |
+| emotion_regulation_score | FLOAT | 感情調節スコア (0〜100、低いほど良好)。調節困難度を反映 |
+| psychological_state_score | FLOAT | 心理的状態スコア (0〜100、低いほど良好)。心理的苦痛の強さを反映 |
+| overall_score | FLOAT | 総合スコア (0〜100、高いほど良好)。文献に基づく重み付け計算式（§4.1 参照） |
+
+#### 4.1 スコアリング方式
+
+各カテゴリスコアは 0〜100 に正規化（低い = 良好）。overall は以下の重み付けで算出:
+
+```
+overall = (100 - anger_state)       × 0.25
+        + (100 - cognitive_pattern)  × 0.20
+        + (100 - physiological)      × 0.15
+        + (100 - behavioral)         × 0.15
+        + (100 - emotion_regulation) × 0.15
+        + (100 - psychological_state)× 0.10
+```
+
+重み付けの根拠:
+- anger_state (0.25): 本アプリの主目的である怒り状態の直接測定（STAXI-2 State Anger を最重要視）
+- cognitive_pattern (0.20): CBT の中核概念。Novaco モデルにおいて認知は慢性的怒りと長期的攻撃リスクの最良予測因子
+- physiological (0.15): InAn (2025) の因子分析で覚醒管理困難が分散の 58.8% を占める重要因子
+- behavioral (0.15): Novaco モデルの行動成分。対人関係への直接的影響度
+- emotion_regulation (0.15): DERS に基づく感情調節能力。全カテゴリを媒介する保護因子
+- psychological_state (0.10): K6/PANAS に基づく文脈情報。怒りの背景にある全般的な心理状態
+
+重症度ラベル（overall に基づく、CAS・K6・DASS-21 の閾値を統合）:
+- ≥ 70: 良好（CAS minimal ≈ 79%、K6 low ≈ 79%、DASS-21 normal ≈ 67% の収束点）
+- ≥ 45: 普通（K6 moderate ≈ 46%、DASS-21 moderate ≈ 41% の中間域）
+- ≥ 25: 注意（DASS-21 severe ≈ 21% 付近）
+- < 25: 要ケア（複数尺度で臨床的に有意な水準）
 
 ---
 
@@ -264,7 +297,7 @@ tancha-naran-do/
 | 項目 | 検証内容 |
 |---|---|
 | `session_id` | 正の整数のみ受付（非数値・0・負値 → 400） |
-| `question_id` | 1〜200 の既存 ID のみ受付（範囲外・未定義 → 400） |
+| `question_id` | 1〜120 の既存 ID のみ受付（範囲外・未定義 → 400） |
 | `answer_value` | 1〜4 のみ受付（範囲外・非整数 → 400） |
 | `days` パラメータ | 1〜365 の範囲（範囲外 → 422） |
 | `limit` パラメータ | 1〜200 の範囲（範囲外 → 422） |
@@ -391,17 +424,17 @@ docker exec -w /app <container_id> python -m pytest tests/ -v
 docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### 13.5 テスト件数（2026-03-30 時点）
+### 13.5 テスト件数（2026-05-04 時点）
 
 | テストファイル | テストクラス | テスト件数 |
 |---|---|---|
-| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 26 |
-| test_questions_data.py | TestQuestionsData, TestQuestionById | 17 |
+| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 30 |
+| test_questions_data.py | TestQuestionsData, TestQuestionById | 22 |
 | test_messages_data.py | TestRelaxationMessages, TestGetRandomMessage, TestGetMessages | 12 |
 | test_api.py | 9クラス（全エンドポイント + 週末セッション） | 69 |
 | test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 50 |
 | test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 19 |
-| **合計** | | **193** |
+| **合計** | | **202** |
 
 ---
 
@@ -443,3 +476,4 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-29 | テスト件数: 181 → 193 件（§13.5）。 |
 | 2026-03-30 | バグ修正: mindfulness・cognitive_regulation の overall スコア方向を統一。逆転項目（reverse=True）の設計に合わせ、全カテゴリ「低い=良好」に統一。overall 計算式を `(100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1` に修正（§7）。依存: alembic 1.16.1 → 1.18.4。 |
 | 2026-04-02 | 仕様書ドキュメントバグ修正: `regulation_score` の方向性説明を「高いほど良好」→「低いほど良好」に修正（§7）。2026-03-28 のコード修正（DERS は高い=困難=悪い）が仕様書に未反映だったため。 |
+| 2026-05-04 | 大規模仕様変更: (1) スケジュールを平日9-18時×3回 → 曜日問わず9-22時×2回に変更（§3.1, §3.4）。(2) 設問を200問5カテゴリ → 120問6カテゴリに再編成。CBT（認知行動療法）・アンガーマネジメント文献に基づき、現在の心理状態・怒りの状態をより的確に評価できる設問構成に刷新（§4）。新カテゴリ: anger_state, cognitive_pattern, physiological, behavioral, emotion_regulation, psychological_state。(3) スコアリングを文献に基づく重み付けに最適化（§4.1）。重症度ラベル閾値を CAS・K6・DASS-21 の検証済み閾値に基づき 70/45/25 に変更。(4) emotional_scores テーブルのカラムを新カテゴリに対応するよう変更（§7）。週末振り返り機能は維持。 |

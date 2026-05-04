@@ -441,10 +441,12 @@ async def api_history(days: int = Query(default=7, ge=1, le=365), db: Session = 
         result.append({
             "date": day_str,
             "overall": round(sum(s.overall_score for s in day_scores) / len(day_scores), 1),
-            "anger": round(sum(s.anger_score for s in day_scores) / len(day_scores), 1),
-            "regulation": round(sum(s.regulation_score for s in day_scores) / len(day_scores), 1),
-            "mindfulness": round(sum(s.mindfulness_score for s in day_scores) / len(day_scores), 1),
-            "stress": round(sum(s.stress_score for s in day_scores) / len(day_scores), 1),
+            "anger_state": round(sum(s.anger_state_score for s in day_scores) / len(day_scores), 1),
+            "cognitive_pattern": round(sum(s.cognitive_pattern_score for s in day_scores) / len(day_scores), 1),
+            "physiological": round(sum(s.physiological_score for s in day_scores) / len(day_scores), 1),
+            "behavioral": round(sum(s.behavioral_score for s in day_scores) / len(day_scores), 1),
+            "emotion_regulation": round(sum(s.emotion_regulation_score for s in day_scores) / len(day_scores), 1),
+            "psychological_state": round(sum(s.psychological_state_score for s in day_scores) / len(day_scores), 1),
             "sessions": len(day_scores),
         })
     return result

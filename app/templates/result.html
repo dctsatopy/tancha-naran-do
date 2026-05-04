@@ -31,38 +31,56 @@
         <div class="row g-2 text-start mt-1">
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">怒りスコア</span>
+              <span class="score-detail-label">怒りの状態</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-danger" style="width:{{ score.anger_score }}%"></div>
+                <div class="progress-bar bg-danger" style="width:{{ score.anger_state_score }}%"></div>
               </div>
-              <small class="text-muted">{{ score.anger_score|int }}点</small>
+              <small class="text-muted">{{ score.anger_state_score|int }}点</small>
             </div>
           </div>
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">感情調節困難</span>
+              <span class="score-detail-label">認知パターン</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-warning" style="width:{{ score.regulation_score }}%"></div>
+                <div class="progress-bar bg-warning" style="width:{{ score.cognitive_pattern_score }}%"></div>
               </div>
-              <small class="text-muted">{{ score.regulation_score|int }}点</small>
+              <small class="text-muted">{{ score.cognitive_pattern_score|int }}点</small>
             </div>
           </div>
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">マインドフルネス難度</span>
+              <span class="score-detail-label">身体反応</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-warning" style="width:{{ score.mindfulness_score }}%"></div>
+                <div class="progress-bar bg-info" style="width:{{ score.physiological_score }}%"></div>
               </div>
-              <small class="text-muted">{{ score.mindfulness_score|int }}点</small>
+              <small class="text-muted">{{ score.physiological_score|int }}点</small>
             </div>
           </div>
           <div class="col-6">
             <div class="score-detail-item">
-              <span class="score-detail-label">ストレス</span>
+              <span class="score-detail-label">行動傾向</span>
               <div class="progress mt-1" style="height:8px;">
-                <div class="progress-bar bg-warning" style="width:{{ score.stress_score }}%"></div>
+                <div class="progress-bar bg-warning" style="width:{{ score.behavioral_score }}%"></div>
               </div>
-              <small class="text-muted">{{ score.stress_score|int }}点</small>
+              <small class="text-muted">{{ score.behavioral_score|int }}点</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">感情調節</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-warning" style="width:{{ score.emotion_regulation_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.emotion_regulation_score|int }}点</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="score-detail-item">
+              <span class="score-detail-label">心理的状態</span>
+              <div class="progress mt-1" style="height:8px;">
+                <div class="progress-bar bg-secondary" style="width:{{ score.psychological_state_score }}%"></div>
+              </div>
+              <small class="text-muted">{{ score.psychological_state_score|int }}点</small>
             </div>
           </div>
         </div>

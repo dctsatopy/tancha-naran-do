@@ -22,11 +22,11 @@
         <div class="d-flex align-items-center mb-3">
           <div class="progress flex-grow-1 me-3" style="height:20px;">
             <div class="progress-bar bg-success" role="progressbar"
-                 style="width: {{ (completed_today / 3 * 100)|int }}%">
-              {{ completed_today }}/3
+                 style="width: {{ (completed_today / 2 * 100)|int }}%">
+              {{ completed_today }}/2
             </div>
           </div>
-          <span class="fw-bold">{{ completed_today }}/3 完了</span>
+          <span class="fw-bold">{{ completed_today }}/2 完了</span>
         </div>
 
         {% if pending_session %}
@@ -95,33 +95,49 @@
         <div class="row text-center g-2">
           <div class="col-6">
             <div class="score-mini-card">
-              <div class="score-label">怒り</div>
-              <div class="score-value text-{{ 'danger' if latest_score.anger_score > 50 else 'success' }}">
-                {{ latest_score.anger_score|int }}
+              <div class="score-label">怒りの状態</div>
+              <div class="score-value text-{{ 'danger' if latest_score.anger_state_score > 50 else 'success' }}">
+                {{ latest_score.anger_state_score|int }}
               </div>
             </div>
           </div>
           <div class="col-6">
             <div class="score-mini-card">
-              <div class="score-label">感情調節困難</div>
-              <div class="score-value text-{{ 'danger' if latest_score.regulation_score > 50 else 'success' }}">
-                {{ latest_score.regulation_score|int }}
+              <div class="score-label">認知パターン</div>
+              <div class="score-value text-{{ 'danger' if latest_score.cognitive_pattern_score > 50 else 'success' }}">
+                {{ latest_score.cognitive_pattern_score|int }}
               </div>
             </div>
           </div>
-          <div class="col-6">
+          <div class="col-4">
             <div class="score-mini-card">
-              <div class="score-label">マインドフルネス難度</div>
-              <div class="score-value text-{{ 'danger' if latest_score.mindfulness_score > 50 else 'success' }}">
-                {{ latest_score.mindfulness_score|int }}
+              <div class="score-label">身体反応</div>
+              <div class="score-value text-{{ 'danger' if latest_score.physiological_score > 50 else 'success' }}">
+                {{ latest_score.physiological_score|int }}
               </div>
             </div>
           </div>
-          <div class="col-6">
+          <div class="col-4">
             <div class="score-mini-card">
-              <div class="score-label">ストレス</div>
-              <div class="score-value text-{{ 'danger' if latest_score.stress_score > 50 else 'success' }}">
-                {{ latest_score.stress_score|int }}
+              <div class="score-label">行動傾向</div>
+              <div class="score-value text-{{ 'danger' if latest_score.behavioral_score > 50 else 'success' }}">
+                {{ latest_score.behavioral_score|int }}
+              </div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="score-mini-card">
+              <div class="score-label">感情調節</div>
+              <div class="score-value text-{{ 'danger' if latest_score.emotion_regulation_score > 50 else 'success' }}">
+                {{ latest_score.emotion_regulation_score|int }}
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="score-mini-card">
+              <div class="score-label">心理的状態</div>
+              <div class="score-value text-{{ 'danger' if latest_score.psychological_state_score > 50 else 'success' }}">
+                {{ latest_score.psychological_state_score|int }}
               </div>
             </div>
           </div>
