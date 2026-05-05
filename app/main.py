@@ -128,11 +128,41 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     # 起動時
     Base.metadata.create_all(bind=engine)
+    _migrate_emotional_scores_schema()
     _migrate_access_tokens()
     start_scheduler()
     yield
     # 終了時
     stop_scheduler()
+
+
+def _migrate_emotional_scores_schema() -> None:
+    """旧 emotional_scores スキーマ(5カラム)を新スキーマ(7カラム)へ移行する"""
+    import sqlite3
+    db_path = engine.url.database
+    if not db_path:
+        return
+    conn = sqlite3.connect(db_path)
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(emotional_scores)").fetchall()}
+        if "anger_state_score" in cols:
+            return
+        if "anger_score" not in cols:
+            return
+        logger.info("[MIGRATE] Migrating emotional_scores schema from old to new columns")
+        conn.execute("ALTER TABLE emotional_scores RENAME COLUMN anger_score TO anger_state_score")
+        conn.execute("ALTER TABLE emotional_scores RENAME COLUMN regulation_score TO emotion_regulation_score")
+        conn.execute("ALTER TABLE emotional_scores RENAME COLUMN mindfulness_score TO cognitive_pattern_score")
+        conn.execute("ALTER TABLE emotional_scores RENAME COLUMN stress_score TO physiological_score")
+        conn.execute("ALTER TABLE emotional_scores ADD COLUMN behavioral_score FLOAT NOT NULL DEFAULT 50.0")
+        conn.execute("ALTER TABLE emotional_scores ADD COLUMN psychological_state_score FLOAT NOT NULL DEFAULT 50.0")
+        conn.commit()
+        logger.info("[MIGRATE] emotional_scores schema migration completed successfully")
+    except Exception as e:
+        logger.error("[MIGRATE] emotional_scores schema migration failed: %s", e)
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 def _migrate_access_tokens() -> None:
