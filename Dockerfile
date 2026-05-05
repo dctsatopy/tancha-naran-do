@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # ベースイメージのシステムパッケージを最新化して既知の CVE を緩和する
 RUN apt-get update && \

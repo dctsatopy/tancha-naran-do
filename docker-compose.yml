@@ -1,5 +1,7 @@
 services:
   app:
+    container_name: tancha-naran-do
+    image: tancha-naran-do
     build: .
     ports:
       - "8080:8000"
