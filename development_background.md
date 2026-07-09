@@ -91,7 +91,7 @@
 
 | レイヤー | 採用技術 | 選定理由 |
 |---|---|---|
-| バックエンド | Python 3.11 + FastAPI | 非同期対応・型安全・軽量 |
+| バックエンド | Python 3.14（最新安定版）+ FastAPI | 非同期対応・型安全・軽量 |
 | テンプレートエンジン | Jinja2 | サーバーサイドレンダリングで簡素な構成 |
 | データベース | SQLite + SQLAlchemy 2.x | Docker 内で完結・外部依存なし |
 | スケジューラ | APScheduler 3.x | プロセス内スケジューリング |
@@ -99,6 +99,16 @@
 | グラフ | Chart.js 4.x | 軽量・日本語対応 |
 | コンテナ | Docker + Docker Compose | ポータブルな実行環境 |
 | CI/CD | GitHub Actions | pytest 実行 + Docker イメージビルド確認（push なし） |
+
+### 5.1 バージョンポリシー
+
+- **Python は常に最新の安定版（stable）メジャーリリースを利用する**（2026-07-09 時点: 3.14 系）。
+- Python バージョンは以下の 4 箇所で一致させること。不整合は `tests/test_environment.py` で検出する。
+  1. `Dockerfile` のベースイメージ（`python:3.14-slim`）
+  2. `.github/workflows/ci.yml` の `python-version`
+  3. `README.md` の技術スタック表
+  4. 本仕様書 §5 の技術スタック表
+- 依存パッケージ（`requirements.txt` / `requirements-dev.txt`）は最新安定版にピン留めし、Dependabot の週次更新と `pip-audit` による脆弱性チェックで維持する。
 
 ---
 
@@ -401,7 +411,8 @@ tests/
 ├── test_messages_data.py     # メッセージデータのユニットテスト
 ├── test_api.py               # HTTP エンドポイントの統合テスト
 ├── test_security.py          # セキュリティヘッダー・入力検証テスト
-└── test_scheduler.py         # スケジューラのユニットテスト
+├── test_scheduler.py         # スケジューラのユニットテスト
+└── test_environment.py       # 実行環境・バージョン整合性テスト（§5.1）
 ```
 
 ### 13.3 テスト環境
@@ -424,7 +435,7 @@ docker exec -w /app <container_id> python -m pytest tests/ -v
 docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### 13.5 テスト件数（2026-05-04 時点）
+### 13.5 テスト件数（2026-07-09 時点）
 
 | テストファイル | テストクラス | テスト件数 |
 |---|---|---|
@@ -434,7 +445,8 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | test_api.py | 9クラス（全エンドポイント + 週末セッション） | 69 |
 | test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 50 |
 | test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 19 |
-| **合計** | | **202** |
+| test_environment.py | TestPythonVersionConsistency, TestDependencyPins | 9 |
+| **合計** | | **211** |
 
 ---
 
@@ -477,3 +489,4 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-03-30 | バグ修正: mindfulness・cognitive_regulation の overall スコア方向を統一。逆転項目（reverse=True）の設計に合わせ、全カテゴリ「低い=良好」に統一。overall 計算式を `(100-mindfulness)×0.2 + (100-cognitive_regulation)×0.1` に修正（§7）。依存: alembic 1.16.1 → 1.18.4。 |
 | 2026-04-02 | 仕様書ドキュメントバグ修正: `regulation_score` の方向性説明を「高いほど良好」→「低いほど良好」に修正（§7）。2026-03-28 のコード修正（DERS は高い=困難=悪い）が仕様書に未反映だったため。 |
 | 2026-05-04 | 大規模仕様変更: (1) スケジュールを平日9-18時×3回 → 曜日問わず9-22時×2回に変更（§3.1, §3.4）。(2) 設問を200問5カテゴリ → 120問6カテゴリに再編成。CBT（認知行動療法）・アンガーマネジメント文献に基づき、現在の心理状態・怒りの状態をより的確に評価できる設問構成に刷新（§4）。新カテゴリ: anger_state, cognitive_pattern, physiological, behavioral, emotion_regulation, psychological_state。(3) スコアリングを文献に基づく重み付けに最適化（§4.1）。重症度ラベル閾値を CAS・K6・DASS-21 の検証済み閾値に基づき 70/45/25 に変更。(4) emotional_scores テーブルのカラムを新カテゴリに対応するよう変更（§7）。週末振り返り機能は維持。 |
+| 2026-07-09 | Python を最新安定版 3.14 に統一し、バージョンポリシーを策定（§5, §5.1）。CI（3.11→3.14）・README を Dockerfile（python:3.14-slim）に合わせて修正。バージョン整合性テスト `test_environment.py` を新設（9件）。依存パッケージを最新化: fastapi 0.136.3→0.139.0, uvicorn 0.49.0→0.51.0, sqlalchemy 2.0.50→2.0.51, apscheduler 3.11.2→3.11.3, slowapi 0.1.9→0.1.10, pytest 9.0.3→9.1.1, alembic 1.18.4→1.18.5。pip-audit で既知脆弱性ゼロを確認。テスト件数: 202→211 件（§13.5）。 |

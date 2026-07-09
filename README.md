@@ -19,7 +19,7 @@
 
 | レイヤー | 採用技術 |
 |---|---|
-| バックエンド | Python 3.11 + FastAPI |
+| バックエンド | Python 3.14 + FastAPI |
 | テンプレートエンジン | Jinja2 |
 | データベース | SQLite + SQLAlchemy 2.x |
 | スケジューラ | APScheduler 3.x |
