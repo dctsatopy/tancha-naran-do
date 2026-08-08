@@ -7,22 +7,23 @@
 環境変数の上書きは app モジュールのインポートより先に行う。
 """
 import os
-import pytest
 from datetime import datetime
 from unittest.mock import patch
+
+import pytest
 
 # ── テスト専用環境変数（app インポート前に設定する） ──────────────────────
 os.environ["DATABASE_URL"] = "sqlite:////tmp/tancha_naran_do_test.db"
 os.environ["LOG_DIR"] = "/tmp/tancha-test-logs"
 os.environ["DISABLE_RATE_LIMIT"] = "true"  # テスト中はレート制限を無効化
 
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
 from app.database import get_db
-from app.models import Base, CheckInSession, CheckInAnswer, EmotionalScore
 from app.main import app
+from app.models import Base, CheckInAnswer, CheckInSession, EmotionalScore
 
 _test_engine = create_engine(
     os.environ["DATABASE_URL"],

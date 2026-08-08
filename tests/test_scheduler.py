@@ -5,13 +5,13 @@
 - 曜日問わず 9:00〜22:00 の間に1日2回のチェックイン時刻を生成
 - 週末振り返りセッションは維持（土日18:00〜21:00に1件）
 """
+from datetime import date, datetime
+
 import pytest
-from datetime import datetime, date
-from unittest.mock import patch
 from freezegun import freeze_time
 
-from app.scheduler import generate_daily_sessions, generate_weekend_session
 from app.models import CheckInSession
+from app.scheduler import generate_daily_sessions, generate_weekend_session
 
 
 class TestGenerateDailySessions:

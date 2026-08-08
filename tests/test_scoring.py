@@ -5,8 +5,9 @@
 スコアリング根拠: CAS (Snell 1995), K6 (Kessler 2003), DASS-21, NAS (Novaco 1994), InAn (2025)
 """
 import pytest
+
+from app.questions_data import QUESTIONS
 from app.scoring import calculate_scores, get_score_label
-from app.questions_data import QUESTIONS, QUESTION_BY_ID
 
 # 新カテゴリ一覧
 NEW_CATEGORIES = [

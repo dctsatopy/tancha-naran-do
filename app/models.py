@@ -1,7 +1,9 @@
 import uuid
-from datetime import datetime, date
-from sqlalchemy import Integer, Float, String, DateTime, Date, ForeignKey
+from datetime import date, datetime
+
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database import Base
 
 
@@ -17,8 +19,8 @@ class CheckInSession(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending/in_progress/completed/skipped
 
-    answers: Mapped[list["CheckInAnswer"]] = relationship(back_populates="session", cascade="all, delete-orphan")
-    score: Mapped["EmotionalScore | None"] = relationship(back_populates="session", uselist=False)
+    answers: Mapped[list[CheckInAnswer]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    score: Mapped[EmotionalScore | None] = relationship(back_populates="session", uselist=False)
 
 
 class CheckInAnswer(Base):
@@ -30,7 +32,7 @@ class CheckInAnswer(Base):
     answer_value: Mapped[int] = mapped_column(Integer, nullable=False)
     answered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    session: Mapped["CheckInSession"] = relationship(back_populates="answers")
+    session: Mapped[CheckInSession] = relationship(back_populates="answers")
 
 
 class EmotionalScore(Base):
@@ -47,4 +49,4 @@ class EmotionalScore(Base):
     psychological_state_score: Mapped[float] = mapped_column(Float, nullable=False)
     overall_score: Mapped[float] = mapped_column(Float, nullable=False)
 
-    session: Mapped["CheckInSession"] = relationship(back_populates="score")
+    session: Mapped[CheckInSession] = relationship(back_populates="score")

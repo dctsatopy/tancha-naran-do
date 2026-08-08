@@ -1,6 +1,7 @@
-import random
 import logging
+import random
 from datetime import datetime
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.exc import SQLAlchemyError
@@ -53,9 +54,10 @@ def generate_daily_sessions():
 
 def generate_weekend_session():
     """土日に限り、振り返り用チェックイン1件を 18:00〜21:00 の間に生成してDBに保存する"""
+    from sqlalchemy import func
+
     from app.database import SessionLocal
     from app.models import CheckInSession
-    from sqlalchemy import func
 
     now = datetime.now()
     if now.weekday() < 5:

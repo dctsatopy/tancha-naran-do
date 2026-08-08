@@ -3,8 +3,7 @@
 
 仕様参照: tancha_naran_do.md §3.3
 """
-import pytest
-from app.messages_data import RELAXATION_MESSAGES, get_random_message, get_messages
+from app.messages_data import RELAXATION_MESSAGES, get_messages, get_random_message
 
 
 class TestRelaxationMessages:
