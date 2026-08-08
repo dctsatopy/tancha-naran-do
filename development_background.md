@@ -284,7 +284,7 @@ tancha-naran-do/
 | データ永続化 | Docker volume (./data) |
 | ポート | 8080 |
 | ログ | stdout + `/data/logs/access.log`, `/data/logs/app.log`（RotatingFileHandler） |
-| 認証 | なし（ローカル利用想定） |
+| 認証 | Basic 認証（オプトイン）。環境変数 `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` を設定した場合のみ有効化。未設定時はローカル利用想定で無認証（起動時に警告ログを出力） |
 | ヘルスチェック | `GET /health` → `{"status": "ok"}`（コンテナオーケストレーター向け） |
 
 ---
@@ -295,12 +295,13 @@ tancha-naran-do/
 
 | ヘッダー | 値 |
 |---|---|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; font-src https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'` |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'` |
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
 
 > **注記**: `X-XSS-Protection` は現代のブラウザでは非推奨のため削除。CSP ヘッダーで代替する。
+> **注記**: `script-src` / `style-src` は `'unsafe-inline'` を含まない。テンプレート内のインライン `<script>` は `app/static/js/check-in.js`・`weekend-modal.js`・`progress-bars.js` へ外部化し、動的な幅指定を伴うインライン `style` 属性は `data-progress-width` 属性 + `progress-bars.js` による JS 適用に置き換えた（固定値の高さは `.progress-thin` / `.progress-mid` / `.progress-thick` の CSS クラス化）。`dashboard.html` の `onclick` 属性も `data-days` 属性 + `addEventListener` に置き換えている。
 
 ### 11.2 入力バリデーション
 
@@ -319,13 +320,15 @@ tancha-naran-do/
 - 結果ページ URL は `/check-in/result/{access_token}` の形式とし、連番整数による推測を防止する
 - 既存セッション（DB 移行前）に対してはアプリ起動時に自動で UUID を付与する（`_migrate_access_tokens()`）
 - Alembic マイグレーション `0001_add_access_token_to_sessions.py` でも対応可能
+- 万一 `access_token` が未設定のままリダイレクトが必要になった場合も、連番の `session.id` を代替トークンとして使わず、その場で UUID v4 をオンデマンド発行する（`_ensure_access_token()`）
+- アクセスログに出力する `/check-in/result/{access_token}` はトークン部分を `***` にマスクする（ログ閲覧者による結果ページなりすまし閲覧を防止。§12.2）
 
 ### 11.4 CSRF 保護
 
 - `CsrfMiddleware` により POST リクエストの `Origin` / `Referer` ヘッダーを検証する
 - `Origin` ヘッダーが存在し、リクエストホストと不一致 → 403 を返す
 - `Origin` 不在で `Referer` ヘッダーが存在し、ホストを含まない → 403 を返す
-- ヘッダーが存在しない場合（API クライアント・テストクライアント等）は許可する
+- `Origin` / `Referer` のいずれも存在しない場合も 403 を返す（本アプリはブラウザからのフォーム送信のみを想定しており curl 等の直接呼び出しはサポート対象外のため）
 
 ### 11.5 レート制限
 
@@ -339,6 +342,7 @@ tancha-naran-do/
 
 - API ドキュメント（`/docs`, `/redoc`, `/openapi.json`）はデフォルト非公開（`ENABLE_DOCS=true` で有効化）
 - Docker コンテナは非 root ユーザー（`appuser`, UID=1000）で実行
+- Basic 認証（オプトイン）: `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` を両方設定した場合のみ `BasicAuthMiddleware` が全エンドポイント（`/health`, `/static/*` を除く）に認証を要求する。パスワード比較は `secrets.compare_digest` によるタイミング攻撃対策を行う。未設定時は起動時に警告ログを出力する
 
 ---
 
@@ -405,15 +409,19 @@ YYYY-MM-DD HH:MM:SS LEVEL    logger_name          message
 
 ```
 tests/
-├── conftest.py               # フィクスチャ（テスト用 DB・TestClient）
+├── conftest.py               # フィクスチャ（テスト用 DB・TestClient・CSRF ヘッダーヘルパー）
+├── test_conftest.py          # conftest.py のテストヘルパーに対するテスト
 ├── test_scoring.py           # スコア計算ロジックのユニットテスト
 ├── test_questions_data.py    # 設問データの整合性テスト
 ├── test_messages_data.py     # メッセージデータのユニットテスト
 ├── test_api.py               # HTTP エンドポイントの統合テスト
 ├── test_security.py          # セキュリティヘッダー・入力検証テスト
+├── test_main.py              # Basic 認証・CSRF ヘッダー欠如・access_token・ログマスキングのテスト
 ├── test_scheduler.py         # スケジューラのユニットテスト
 └── test_environment.py       # 実行環境・バージョン整合性テスト（§5.1）
 ```
+
+フロントエンド JS（`app/static/js/*.js`）については Node.js 標準の `node:test` によるユニットテストを併設している（`*.test.js`、`node --test app/static/js/*.test.js` で実行）。DOM は最小限のスタブで代替している。
 
 ### 13.3 テスト環境
 
@@ -435,18 +443,22 @@ docker exec -w /app <container_id> python -m pytest tests/ -v
 docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### 13.5 テスト件数（2026-07-09 時点）
+### 13.5 テスト件数（2026-08-08 時点）
 
 | テストファイル | テストクラス | テスト件数 |
 |---|---|---|
-| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 30 |
-| test_questions_data.py | TestQuestionsData, TestQuestionById | 22 |
+| test_scoring.py | TestCalculateScores, TestGetScoreLabel | 29 |
+| test_questions_data.py | TestQuestionsData, TestQuestionById | 28 |
 | test_messages_data.py | TestRelaxationMessages, TestGetRandomMessage, TestGetMessages | 12 |
-| test_api.py | 9クラス（全エンドポイント + 週末セッション） | 69 |
-| test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 50 |
-| test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 19 |
+| test_api.py | 9クラス（全エンドポイント + 週末セッション） | 65 |
+| test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 47 |
+| test_main.py | Basic 認証・CSRF ヘッダー欠如・access_token オンデマンド発行・ログマスキング | 10 |
+| test_conftest.py | TestWithoutCsrfHeaders | 1 |
+| test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 21 |
 | test_environment.py | TestPythonVersionConsistency, TestDependencyPins | 9 |
-| **合計** | | **211** |
+| **合計（pytest）** | | **222** |
+
+上記に加え、`app/static/js/*.test.js`（`node --test`）11件がフロントエンド JS を対象にカバーする。
 
 ---
 
@@ -491,3 +503,11 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-05-04 | 大規模仕様変更: (1) スケジュールを平日9-18時×3回 → 曜日問わず9-22時×2回に変更（§3.1, §3.4）。(2) 設問を200問5カテゴリ → 120問6カテゴリに再編成。CBT（認知行動療法）・アンガーマネジメント文献に基づき、現在の心理状態・怒りの状態をより的確に評価できる設問構成に刷新（§4）。新カテゴリ: anger_state, cognitive_pattern, physiological, behavioral, emotion_regulation, psychological_state。(3) スコアリングを文献に基づく重み付けに最適化（§4.1）。重症度ラベル閾値を CAS・K6・DASS-21 の検証済み閾値に基づき 70/45/25 に変更。(4) emotional_scores テーブルのカラムを新カテゴリに対応するよう変更（§7）。週末振り返り機能は維持。 |
 | 2026-07-09 | Python を最新安定版 3.14 に統一し、バージョンポリシーを策定（§5, §5.1）。CI（3.11→3.14）・README を Dockerfile（python:3.14-slim）に合わせて修正。バージョン整合性テスト `test_environment.py` を新設（9件）。依存パッケージを最新化: fastapi 0.136.3→0.139.0, uvicorn 0.49.0→0.51.0, sqlalchemy 2.0.50→2.0.51, apscheduler 3.11.2→3.11.3, slowapi 0.1.9→0.1.10, pytest 9.0.3→9.1.1, alembic 1.18.4→1.18.5。pip-audit で既知脆弱性ゼロを確認。テスト件数: 202→211 件（§13.5）。 |
 | 2026-08-08 | Lint 自動化を導入: `pyproject.toml` を新規作成し `ruff`（line-length=120）を設定、`requirements-dev.txt` に `ruff==0.16.2` を追加。`ruff check --fix` により import 順序・未使用 import 等 32件を自動修正。テスト211件全通過を確認。**保留事項**: 行長超過・デフォルト引数でのミュータブル変数使用など手動修正が必要な135件は未対応のまま残置（別途対応予定）。 |
+| 2026-08-08 | 俯瞰的セキュリティレビュー対応（全6項目）。詳細は以下のとおり。 |
+| 2026-08-08 | [1] エンドポイント無認証を解消: `BasicAuthMiddleware` を追加（オプトイン方式）。`BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` を両方設定した場合のみ全エンドポイント（`/health`, `/static/*` を除く）に Basic 認証がかかる。未設定時は起動時に警告ログを出力（§10, §11.6）。 |
+| 2026-08-08 | [2] CSP から `'unsafe-inline'` を除去: テンプレートのインライン `<script>`/`style` 属性/`onclick` 属性を全廃し、`app/static/js/check-in.js`・`weekend-modal.js`・`progress-bars.js` へ外部化。`dashboard.js` の期間切替ボタンは `data-days` 属性 + `addEventListener` に変更（§11.1）。 |
+| 2026-08-08 | [3] CSRF 保護を強化: `Origin`/`Referer` ヘッダーが両方欠如する POST も 403 で拒否するよう変更（従来は許可していた。§11.4）。 |
+| 2026-08-08 | [4] `access_token` の `session.id` フォールバックを除去: 未設定時は連番 ID を使わずその場で UUID v4 をオンデマンド発行する `_ensure_access_token()` に統一（§11.3）。 |
+| 2026-08-08 | [5] アクセスログの `access_token` をマスク: `/check-in/result/{access_token}` のトークン部分をログ上で `***` に置換（§11.3, §12.2）。 |
+| 2026-08-08 | [6] `docker-compose.yml` に `ENABLE_DOCS=false` / `DISABLE_RATE_LIMIT=false` を明示し、意図しない有効化を防止。README に運用上の注意（Basic 認証の推奨設定）を追記。 |
+| 2026-08-08 | テストファイル `test_main.py`（10件）・`test_conftest.py`（1件）を新設。フロントエンド JS に `node:test` によるユニットテスト（11件）を追加。テスト件数: 211 → 222 件（pytest）+ 11件（node:test）（§13.2, §13.5）。 |

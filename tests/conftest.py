@@ -7,6 +7,7 @@
 環境変数の上書きは app モジュールのインポートより先に行う。
 """
 import os
+from contextlib import contextmanager
 from datetime import datetime
 from unittest.mock import patch
 
@@ -52,7 +53,12 @@ def db_session():
 
 @pytest.fixture
 def client():
-    """FastAPI TestClient（スケジューラをモック化、get_db を テスト DB に差し替え）"""
+    """FastAPI TestClient（スケジューラをモック化、get_db を テスト DB に差し替え）
+
+    実ブラウザの POST リクエストには必ず Origin ヘッダーが付くため、CsrfMiddleware
+    のヘッダー欠如チェック（fix/security-hardening）と整合させるためデフォルトで付与する。
+    ヘッダー欠如自体を検証したいテストは without_csrf_headers() を使うこと。
+    """
     def override_get_db():
         db = _TestSessionLocal()
         try:
@@ -64,9 +70,21 @@ def client():
 
     with patch("app.main.start_scheduler"), patch("app.main.stop_scheduler"):
         with TestClient(app, follow_redirects=False) as c:
+            c.headers["origin"] = "http://testserver"
             yield c
 
     app.dependency_overrides.clear()
+
+
+@contextmanager
+def without_csrf_headers(client):
+    """client のデフォルト Origin ヘッダーを一時的に取り除く（CSRF ヘッダー欠如テスト用）"""
+    saved = client.headers.pop("origin", None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            client.headers["origin"] = saved
 
 
 # ── テストデータ生成ヘルパー ──────────────────────────────────────────────

@@ -126,6 +126,14 @@ body {
 /* ─── トランジション ─── */
 .transition-all { transition: width 0.4s ease; }
 
+/* ─── プログレスバーの高さ（インライン style 撤廃のため CSS クラス化） ─── */
+.progress-thin  { height: 8px; }
+.progress-mid   { height: 10px; }
+.progress-thick { height: 20px; }
+
+/* ─── プログレスバーの初期幅（JS で data-progress-width を反映するまでの初期状態） ─── */
+.progress-bar-start-zero { width: 0; }
+
 /* ─── レスポンシブ調整 ─── */
 @media (max-width: 576px) {
   .scale-label { flex: 1 1 40%; }

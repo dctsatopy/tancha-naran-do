@@ -10,4 +10,10 @@ services:
     environment:
       - TZ=Asia/Tokyo
       - DATABASE_URL=sqlite:////data/tancha.db
+      # 本番運用時の安全側デフォルトを明示（意図せず有効化されないようにする）
+      - ENABLE_DOCS=false
+      - DISABLE_RATE_LIMIT=false
+      # 信頼済みネットワーク外に公開する場合は必ず設定すること（未設定時は無認証で起動）
+      # - BASIC_AUTH_USER=
+      # - BASIC_AUTH_PASSWORD=
     restart: unless-stopped
