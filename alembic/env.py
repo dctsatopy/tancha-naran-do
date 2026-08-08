@@ -7,6 +7,7 @@ import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
 # alembic.ini の [alembic] セクションを読み込む
@@ -18,6 +19,7 @@ if config.config_file_name is not None:
 
 # アプリケーションのメタデータをインポート（autogenerate で使用）
 from app.models import Base  # noqa: E402
+
 target_metadata = Base.metadata
 
 # DATABASE_URL 環境変数を優先する

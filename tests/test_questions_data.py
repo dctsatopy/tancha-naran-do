@@ -4,7 +4,8 @@
 仕様参照: development_background.md §3.1, §4
 """
 import pytest
-from app.questions_data import QUESTIONS, QUESTION_BY_ID, CATEGORY_IDS
+
+from app.questions_data import CATEGORY_IDS, QUESTION_BY_ID, QUESTIONS
 
 
 class TestQuestionsData:

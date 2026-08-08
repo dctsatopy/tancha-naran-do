@@ -1,30 +1,29 @@
-import os
-import uuid
-import time
-import secrets
-import random
 import logging
-from datetime import datetime, date, timedelta
+import os
+import random
+import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import date, datetime, timedelta
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy.orm import Session
+from slowapi.util import get_remote_address
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.database import engine, get_db
-from app.models import Base, CheckInSession, CheckInAnswer, EmotionalScore
-from app.questions_data import QUESTIONS, QUESTION_BY_ID
-from app.messages_data import get_random_message, get_messages
-from app.scoring import calculate_scores, get_score_label
-from app.scheduler import start_scheduler, stop_scheduler
 from app.logging_config import setup_logging
+from app.messages_data import get_messages, get_random_message
+from app.models import Base, CheckInAnswer, CheckInSession, EmotionalScore
+from app.questions_data import QUESTION_BY_ID, QUESTIONS
+from app.scheduler import start_scheduler, stop_scheduler
+from app.scoring import calculate_scores, get_score_label
 
 setup_logging()
 logger = logging.getLogger(__name__)

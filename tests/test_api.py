@@ -3,11 +3,12 @@ HTTP エンドポイントの統合テスト (app/main.py)
 
 仕様参照: tancha_naran_do.md §3, §6, §9
 """
-import pytest
 from datetime import datetime, timedelta
+
 from freezegun import freeze_time
+
 from app.models import CheckInSession, EmotionalScore
-from tests.conftest import make_session, make_completed_session
+from tests.conftest import make_completed_session, make_session
 
 
 class TestHomeEndpoint:
@@ -233,6 +234,7 @@ class TestSubmitEndpoint:
     def test_concurrent_submission_no_duplicate_scores(self, client, db_session):
         """並行送信でスコアが重複保存されないこと（仕様 §11.2）"""
         import concurrent.futures
+
         from app.models import EmotionalScore
 
         session = make_session(db_session, status="in_progress")
