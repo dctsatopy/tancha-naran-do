@@ -25,6 +25,7 @@ SECURITY_HEADERS = {
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     "referrer-policy": "strict-origin-when-cross-origin",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
 }
 
 
@@ -200,6 +201,21 @@ class TestCsrfProtection:
                 "/check-in/submit",
                 data={"session_id": "1", "q_1": "2"},
                 headers={"Referer": "https://malicious-site.example.com/evil-page"},
+            )
+        assert res.status_code == 403
+
+    def test_post_with_referer_host_as_substring_rejected(self, client):
+        """正規ホスト名が Referer のパス等に部分文字列として含まれるだけでは通過しないこと
+
+        単純な `host in referer` 判定だと、攻撃者が
+        https://attacker.example/testserver/evil のような Referer を送るだけで
+        ホスト名の部分文字列一致によりバイパスできてしまう脆弱性を防ぐ。
+        """
+        with without_csrf_headers(client):
+            res = client.post(
+                "/check-in/submit",
+                data={"session_id": "1", "q_1": "2"},
+                headers={"Referer": "https://attacker.example/testserver/evil-page"},
             )
         assert res.status_code == 403
 

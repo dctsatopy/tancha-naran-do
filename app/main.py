@@ -8,6 +8,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -71,6 +72,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # HTTPS 終端をリバースプロキシに委ねる構成でも安全側に倒すため付与する
+        # （ブラウザは HTTP レスポンスの HSTS を無視するため平文運用時の副作用はない）
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -100,8 +104,11 @@ class CsrfMiddleware(BaseHTTPMiddleware):
                     )
                     return JSONResponse(status_code=403, content={"detail": "CSRF protection: invalid origin"})
             elif referer is not None:
-                # Referer ヘッダーのみある場合: Referer がホストを含むか確認
-                if host not in referer:
+                # Referer ヘッダーのみある場合: URL をパースしてホスト部分のみを厳密に比較する
+                # （単純な部分文字列一致だと https://attacker.example/<host>/evil のような
+                #   Referer でバイパスされてしまうため urlparse で netloc を取り出す）
+                referer_host = urlparse(referer).netloc
+                if referer_host != host:
                     logger.warning(
                         "[CSRF] Rejected POST from Referer=%r (expected host=%r) path=%s",
                         referer, host, request.url.path,

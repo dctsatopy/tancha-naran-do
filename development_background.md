@@ -299,8 +299,10 @@ tancha-naran-do/
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
 
 > **注記**: `X-XSS-Protection` は現代のブラウザでは非推奨のため削除。CSP ヘッダーで代替する。
+> **注記**: `Strict-Transport-Security` は HTTPS 終端をリバースプロキシに委ねる構成を見据えて付与している。HTTP レスポンスに含めてもブラウザは無視するため平文運用時の副作用はない。
 > **注記**: `script-src` / `style-src` は `'unsafe-inline'` を含まない。テンプレート内のインライン `<script>` は `app/static/js/check-in.js`・`weekend-modal.js`・`progress-bars.js` へ外部化し、動的な幅指定を伴うインライン `style` 属性は `data-progress-width` 属性 + `progress-bars.js` による JS 適用に置き換えた（固定値の高さは `.progress-thin` / `.progress-mid` / `.progress-thick` の CSS クラス化）。`dashboard.html` の `onclick` 属性も `data-days` 属性 + `addEventListener` に置き換えている。
 
 ### 11.2 入力バリデーション
@@ -327,7 +329,7 @@ tancha-naran-do/
 
 - `CsrfMiddleware` により POST リクエストの `Origin` / `Referer` ヘッダーを検証する
 - `Origin` ヘッダーが存在し、リクエストホストと不一致 → 403 を返す
-- `Origin` 不在で `Referer` ヘッダーが存在し、ホストを含まない → 403 を返す
+- `Origin` 不在で `Referer` ヘッダーが存在し、`urlparse(referer).netloc` がリクエストホストと不一致 → 403 を返す（`host in referer` のような部分文字列一致は `https://attacker.example/<host>/evil` のような Referer でバイパスされるため使用しない）
 - `Origin` / `Referer` のいずれも存在しない場合も 403 を返す（本アプリはブラウザからのフォーム送信のみを想定しており curl 等の直接呼び出しはサポート対象外のため）
 
 ### 11.5 レート制限
@@ -451,12 +453,12 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | test_questions_data.py | TestQuestionsData, TestQuestionById | 28 |
 | test_messages_data.py | TestRelaxationMessages, TestGetRandomMessage, TestGetMessages | 12 |
 | test_api.py | 9クラス（全エンドポイント + 週末セッション） | 65 |
-| test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 47 |
+| test_security.py | 7クラス（ヘッダー・CSRF・ヘルスチェック・バリデーション・境界値） | 48 |
 | test_main.py | Basic 認証・CSRF ヘッダー欠如・access_token オンデマンド発行・ログマスキング | 10 |
 | test_conftest.py | TestWithoutCsrfHeaders | 1 |
 | test_scheduler.py | TestGenerateDailySessions, TestGenerateWeekendSession | 21 |
 | test_environment.py | TestPythonVersionConsistency, TestDependencyPins | 9 |
-| **合計（pytest）** | | **222** |
+| **合計（pytest）** | | **223** |
 
 上記に加え、`app/static/js/*.test.js`（`node --test`）11件がフロントエンド JS を対象にカバーする。
 
@@ -511,3 +513,4 @@ docker exec -w /app <container_id> python -m pytest tests/ --cov=app --cov-repor
 | 2026-08-08 | [5] アクセスログの `access_token` をマスク: `/check-in/result/{access_token}` のトークン部分をログ上で `***` に置換（§11.3, §12.2）。 |
 | 2026-08-08 | [6] `docker-compose.yml` に `ENABLE_DOCS=false` / `DISABLE_RATE_LIMIT=false` を明示し、意図しない有効化を防止。README に運用上の注意（Basic 認証の推奨設定）を追記。 |
 | 2026-08-08 | テストファイル `test_main.py`（10件）・`test_conftest.py`（1件）を新設。フロントエンド JS に `node:test` によるユニットテスト（11件）を追加。テスト件数: 211 → 222 件（pytest）+ 11件（node:test）（§13.2, §13.5）。 |
+| 2026-08-08 | v2.2.0 リリース後の深掘りセキュリティレビューで [S-4] `CsrfMiddleware` の Referer 検証に部分文字列一致の脆弱性を発見・修正: `host in referer` 判定だと `https://attacker.example/<host>/evil-page` のような Referer で CSRF 保護をバイパスできたため、`urlparse(referer).netloc` による厳密なホスト比較に変更（§11.4）。あわせて [O-4] `Strict-Transport-Security` ヘッダーを追加（HTTPS 終端をリバースプロキシに委ねる構成を見据えた予防的対応。§11.1）。pip-audit で requirements.txt / requirements-dev.txt の既知脆弱性ゼロを確認。テスト1件追加（§13.5、合計223件）。 |
