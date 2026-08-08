@@ -20,9 +20,9 @@
       </div>
       <div class="card-body">
         <div class="d-flex align-items-center mb-3">
-          <div class="progress flex-grow-1 me-3" style="height:20px;">
+          <div class="progress flex-grow-1 me-3 progress-thick">
             <div class="progress-bar bg-success" role="progressbar"
-                 style="width: {{ (completed_today / 2 * 100)|int }}%">
+                 data-progress-width="{{ (completed_today / 2 * 100)|int }}">
               {{ completed_today }}/2
             </div>
           </div>
@@ -188,22 +188,11 @@
     </div>
   </div>
 </div>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const modal = new bootstrap.Modal(document.getElementById('weekendModal'));
-    modal.show();
-    document.getElementById('weekendOkBtn').addEventListener('click', function () {
-      const btn = this;
-      btn.disabled = true;
-      fetch('/api/sessions/weekend', { method: 'POST' })
-        .then(function (r) {
-          if (r.ok) { location.reload(); }
-          else { r.json().then(function (d) { alert('エラー: ' + d.detail); btn.disabled = false; }); }
-        })
-        .catch(function () { alert('通信エラーが発生しました'); btn.disabled = false; });
-    });
-  });
-</script>
 {% endif %}
 
+{% endblock %}
+{% block scripts %}
+{% if is_weekend_prompt %}
+<script src="/static/js/weekend-modal.js"></script>
+{% endif %}
 {% endblock %}

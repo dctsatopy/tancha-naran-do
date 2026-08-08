@@ -125,4 +125,13 @@ async function loadHistoryTable() {
   }).join('');
 }
 
-document.addEventListener('DOMContentLoaded', () => loadChart(7));
+document.addEventListener('DOMContentLoaded', () => {
+  // CSP の script-src から 'unsafe-inline' を除去するため、期間切替ボタンの
+  // onclick 属性は使わず data-days 属性 + addEventListener で処理する。
+  document.querySelectorAll('[data-days]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      loadChart(parseInt(this.dataset.days, 10));
+    });
+  });
+  loadChart(7);
+});

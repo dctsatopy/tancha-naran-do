@@ -57,7 +57,13 @@ DATABASE_URL=sqlite:///./data/tancha.db uvicorn app.main:app --host 0.0.0.0 --po
 | `TZ` | `Asia/Tokyo` | タイムゾーン |
 | `LOG_LEVEL` | `INFO` | ログレベル |
 | `LOG_DIR` | `/data/logs` | ログ出力ディレクトリ |
-| `ENABLE_DOCS` | `false` | `true` にすると `/docs` `/redoc` を公開 |
+| `ENABLE_DOCS` | `false` | `true` にすると `/docs` `/redoc` を公開。本番運用では必ず `false` のままにすること |
+| `DISABLE_RATE_LIMIT` | `false` | `true` にするとレート制限を無効化（テスト用途のみ）。本番運用では必ず `false` のままにすること |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | 未設定 | 両方設定すると全エンドポイント（`/health`, `/static/*` を除く）に Basic 認証がかかる。**未設定の場合は無認証で起動する**ため、家庭内 LAN 外・信頼できないネットワークに公開する場合は必ず設定すること |
+
+### 運用上の注意
+
+本アプリは個人利用・信頼済みネットワーク内での利用を前提に設計されている。感情スコア等の機微な個人情報を扱うため、ローカル LAN の外や共有環境に公開する場合は、`BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` を必ず設定すること。`docker-compose.yml` の `ENABLE_DOCS` / `DISABLE_RATE_LIMIT` は安全側のデフォルト（`false`）を明示しているため、意図せず変更しないこと。
 
 ---
 

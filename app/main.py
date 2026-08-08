@@ -1,6 +1,9 @@
+import base64
 import logging
 import os
 import random
+import re
+import secrets
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -32,6 +35,12 @@ access_logger = logging.getLogger("access")
 # 本番環境では API ドキュメントを非公開にする（ENABLE_DOCS=true で有効化）
 _ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
 
+if not (os.getenv("BASIC_AUTH_USER") and os.getenv("BASIC_AUTH_PASSWORD")):
+    logger.warning(
+        "[AUTH] BASIC_AUTH_USER/BASIC_AUTH_PASSWORD が未設定のため Basic 認証は無効です。"
+        "信頼済みネットワーク外に公開する場合は必ず設定してください。"
+    )
+
 VALID_ANSWER_VALUES = {1, 2, 3, 4}
 
 # ── レート制限 ────────────────────────────────────────────────────────────────
@@ -40,10 +49,11 @@ _RATE_LIMIT_ENABLED = os.getenv("DISABLE_RATE_LIMIT", "false").lower() != "true"
 limiter = Limiter(key_func=get_remote_address, enabled=_RATE_LIMIT_ENABLED)
 
 # ── Content-Security-Policy ──────────────────────────────────────────────────
+# script-src / style-src はインライン script・style を全廃したため 'unsafe-inline' を含まない
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
-    "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "script-src 'self' https://cdn.jsdelivr.net; "
+    "style-src 'self' https://cdn.jsdelivr.net; "
     "font-src https://cdn.jsdelivr.net data:; "
     "img-src 'self' data:; "
     "connect-src 'self'; "
@@ -69,8 +79,9 @@ class CsrfMiddleware(BaseHTTPMiddleware):
     CSRF 保護ミドルウェア（Origin / Referer ヘッダー検証）
 
     ブラウザが送信する POST リクエストには必ず Origin または Referer ヘッダーが付く。
-    両ヘッダーが存在し、かつリクエストホストと一致しない場合はリジェクトする。
-    ヘッダーが存在しない場合（curl やテストクライアント等）は許可する。
+    いずれのヘッダーも存在しない、またはリクエストホストと一致しない場合はリジェクトする。
+    本アプリはブラウザからのフォーム送信のみを想定しており curl 等の直接呼び出しは
+    サポート対象外のため、ヘッダー欠如も拒否対象とする。
     """
     async def dispatch(self, request: Request, call_next):
         if request.method == "POST":
@@ -96,8 +107,70 @@ class CsrfMiddleware(BaseHTTPMiddleware):
                         referer, host, request.url.path,
                     )
                     return JSONResponse(status_code=403, content={"detail": "CSRF protection: invalid referer"})
+            else:
+                logger.warning(
+                    "[CSRF] Rejected POST without Origin/Referer header path=%s",
+                    request.url.path,
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF protection: missing origin/referer"},
+                )
 
         return await call_next(request)
+
+
+class BasicAuthMiddleware(BaseHTTPMiddleware):
+    """
+    Basic 認証ミドルウェア（オプトイン方式）
+
+    環境変数 BASIC_AUTH_USER / BASIC_AUTH_PASSWORD が両方設定されている場合のみ有効化する。
+    未設定の場合は個人利用・信頼済みネットワーク限定運用とみなし認証をスキップする
+    （起動時に警告ログを出力する）。
+    """
+    _EXEMPT_PREFIXES = ("/health", "/static/")
+
+    async def dispatch(self, request: Request, call_next):
+        expected_user = os.getenv("BASIC_AUTH_USER")
+        expected_secret = os.getenv("BASIC_AUTH_PASSWORD")
+        if not expected_user or not expected_secret:
+            return await call_next(request)
+
+        if request.url.path.startswith(self._EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        header = request.headers.get("authorization", "")
+        if header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(header[len("Basic "):]).decode("utf-8")
+                supplied_user, _, supplied_secret = decoded.partition(":")
+            except (ValueError, UnicodeDecodeError):
+                supplied_user, supplied_secret = "", ""
+
+            if secrets.compare_digest(supplied_user, expected_user) and secrets.compare_digest(
+                supplied_secret, expected_secret
+            ):
+                return await call_next(request)
+
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Authentication required"},
+            headers={"WWW-Authenticate": 'Basic realm="tancha-naran-do"'},
+        )
+
+
+_RESULT_TOKEN_PATH_RE = re.compile(r"^/check-in/result/[^/]+$")
+
+
+def _mask_log_path(path: str) -> str:
+    """/check-in/result/{access_token} の access_token 部分をログ出力用にマスクする
+
+    access_token は結果ページ閲覧用の実質的な秘密情報であり、ログファイルへの
+    アクセス権を持つ者に他人の結果ページを閲覧されないようにするため伏せる。
+    """
+    if _RESULT_TOKEN_PATH_RE.match(path):
+        return "/check-in/result/***"
+    return path
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):
@@ -116,7 +189,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             request_id,
             client_ip,
             request.method,
-            request.url.path,
+            _mask_log_path(request.url.path),
             response.status_code,
             duration_ms,
         )
@@ -194,9 +267,10 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SecurityHeadersMiddleware)  # 内側（セキュリティヘッダー付与）
-app.add_middleware(CsrfMiddleware)             # 中間（CSRF 保護）
-app.add_middleware(AccessLogMiddleware)         # 外側（レスポンスタイム計測）
+app.add_middleware(SecurityHeadersMiddleware)  # 最内側（セキュリティヘッダー付与）
+app.add_middleware(CsrfMiddleware)             # CSRF 保護
+app.add_middleware(BasicAuthMiddleware)        # Basic 認証（オプトイン）
+app.add_middleware(AccessLogMiddleware)         # 最外側（アクセスログ・レスポンスタイム計測。401 も記録するため最も外側）
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -256,6 +330,18 @@ async def home(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _ensure_access_token(db: Session, session: CheckInSession) -> str:
+    """session.access_token が未設定の場合、その場で UUID を払い出して保存する
+
+    連番の session.id を代替トークンとして使うと結果ページが推測されうるため、
+    フォールバックには必ず推測不能な UUID を用いる。
+    """
+    if session.access_token is None:
+        session.access_token = str(uuid.uuid4())
+        db.commit()
+    return session.access_token
+
+
 # ─── チェックイン画面 ─── #
 @app.get("/check-in", response_class=HTMLResponse)
 async def check_in_page(request: Request, session_id: int | None = None, db: Session = Depends(get_db)):
@@ -264,7 +350,7 @@ async def check_in_page(request: Request, session_id: int | None = None, db: Ses
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         if session.status == "completed":
-            token = session.access_token or str(session.id)
+            token = _ensure_access_token(db, session)
             return RedirectResponse(f"/check-in/result/{token}")
     else:
         # 新しいセッション（手動起動）
@@ -367,7 +453,7 @@ async def submit_check_in(request: Request, db: Session = Depends(get_db)):
         len(answers),
         scores.get("overall_score", 0.0),
     )
-    token = session.access_token or str(session_id)
+    token = _ensure_access_token(db, session)
     return RedirectResponse(f"/check-in/result/{token}", status_code=303)
 
 

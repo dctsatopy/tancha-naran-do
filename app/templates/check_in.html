@@ -24,9 +24,8 @@
         <span>回答の進捗</span>
         <span id="progress-text">0 / {{ total }}</span>
       </div>
-      <div class="progress" style="height:10px;">
-        <div id="progress-bar" class="progress-bar bg-success transition-all" role="progressbar"
-             style="width:0%"></div>
+      <div class="progress progress-mid">
+        <div id="progress-bar" class="progress-bar bg-success transition-all progress-bar-start-zero" role="progressbar"></div>
       </div>
     </div>
 
@@ -36,7 +35,7 @@
       <strong>1: まったくそうでない　2: 少しそうだ　3: かなりそうだ　4: 非常にそうだ</strong>
     </p>
 
-    <form method="post" action="/check-in/submit" id="check-in-form">
+    <form method="post" action="/check-in/submit" id="check-in-form" data-total="{{ total }}">
       <input type="hidden" name="session_id" value="{{ session.id }}">
 
       {% for q in questions %}
@@ -76,28 +75,5 @@
 
 {% endblock %}
 {% block scripts %}
-<script>
-const totalQuestions = {{ total }};
-const answered = new Set();
-
-document.querySelectorAll('.answer-radio').forEach(radio => {
-  radio.addEventListener('change', function() {
-    const name = this.name;
-    if (!answered.has(name)) {
-      answered.add(name);
-    }
-    const count = answered.size;
-    const pct = (count / totalQuestions * 100).toFixed(0);
-    document.getElementById('progress-bar').style.width = pct + '%';
-    document.getElementById('progress-text').textContent = count + ' / ' + totalQuestions;
-    document.getElementById('remaining').textContent = totalQuestions - count;
-
-    const submitBtn = document.getElementById('submit-btn');
-    if (count >= totalQuestions) {
-      submitBtn.disabled = false;
-      document.getElementById('submit-hint').classList.add('d-none');
-    }
-  });
-});
-</script>
+<script src="/static/js/check-in.js"></script>
 {% endblock %}

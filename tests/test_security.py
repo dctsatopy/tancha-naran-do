@@ -8,13 +8,13 @@
 """
 import pytest
 
-from tests.conftest import make_session
+from tests.conftest import make_session, without_csrf_headers
 
 SECURITY_HEADERS = {
     "content-security-policy": (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
-        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://cdn.jsdelivr.net; "
         "font-src https://cdn.jsdelivr.net data:; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
@@ -194,23 +194,24 @@ class TestCsrfProtection:
         assert res.status_code == 403
 
     def test_post_with_invalid_referer_rejected(self, client):
-        """異なるドメインの Referer を持つ POST は 403 で拒否されること"""
-        res = client.post(
-            "/check-in/submit",
-            data={"session_id": "1", "q_1": "2"},
-            headers={"Referer": "https://malicious-site.example.com/evil-page"},
-        )
+        """Origin が無く異なるドメインの Referer のみを持つ POST は 403 で拒否されること"""
+        with without_csrf_headers(client):
+            res = client.post(
+                "/check-in/submit",
+                data={"session_id": "1", "q_1": "2"},
+                headers={"Referer": "https://malicious-site.example.com/evil-page"},
+            )
         assert res.status_code == 403
 
-    def test_post_without_origin_or_referer_accepted(self, client, db_session):
-        """Origin/Referer なしの POST（API クライアント等）は許可されること"""
+    def test_post_without_origin_or_referer_rejected(self, client, db_session):
+        """Origin/Referer なしの POST は 403 で拒否されること（本アプリはブラウザ利用のみ想定）"""
         session = make_session(db_session, status="in_progress")
-        res = client.post(
-            "/check-in/submit",
-            data={"session_id": str(session.id), "q_1": "2"},
-        )
-        # CSRF 拒否（403）でなければ OK
-        assert res.status_code != 403
+        with without_csrf_headers(client):
+            res = client.post(
+                "/check-in/submit",
+                data={"session_id": str(session.id), "q_1": "2"},
+            )
+        assert res.status_code == 403
 
 
 class TestApiParameterBounds:
